@@ -41,14 +41,13 @@ soln = np.linalg.solve(arr,b.reshape(2,1))
 print(soln)
 """
 
-"""
 A = np.array([[4,-3,1],[2,1,3],[-1,2,-5]])
 b = np.array([-10,0,17])
 
 x = np.linalg.solve(A, b.reshape(3,1))
 print(x)
 print(f"{np.linalg.det(A):.5f}")
-"""
+
 
 
 
