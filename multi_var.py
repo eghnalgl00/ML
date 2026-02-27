@@ -1,26 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-"""
-#training set
-x_train = np.array([[1,2,3,4,5],[6,7,8,9,10],[11,12,13,14,15]])
-y_train = np.array([15,40,65])
-mean = np.mean(x_train, axis=0) 
-std  = np.std(x_train, axis=0)  
-x_min = np.min(x_train, axis=0)
-x_max = np.max(x_train, axis=0)
 
-norm_x = (x_train - mean) / std
-norm_x_2 = (x_train - mean) / (x_max - x_min)
-"""
-"""
-size = np.array([50, 60, 70, 80, 90])
-bedrooms = np.array([1, 2, 2, 3, 3])
-age = np.array([20, 15, 10, 5, 2])
-
-x_train = np.c_[size, bedrooms, age]
-y_train = np.array([55, 100, 135, 180, 209], dtype=float)
-"""
 size = np.array([
     40, 45, 50, 55, 60,
     65, 70, 75, 80, 85,
