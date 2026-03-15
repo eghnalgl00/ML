@@ -106,4 +106,4 @@ def predict_raw(x_raw):
     return np.dot(w_1, x_norm) + b_1
 
 
-print(predict_raw([120, 4, 10]))
+print(predict_raw([40,1,30]))

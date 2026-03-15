@@ -22,17 +22,20 @@ w = np.array([0.3,-0.3])
 b = 1
 
 
-def compute_cost(x, y, w, b):
+def compute_cost(x, y, w, b, lmd):
     m = x.shape[0]
     f_wb = g(z(x, w, b))
     total_cost = 0.0
+    reg_term = 0.0
     for i in range(m):
         L = -y[i] * np.log(f_wb[i]) - (1 - y[i]) * np.log(1 - f_wb[i])
         total_cost += L
+    reg_term += lmd * sum(w**2) / 2
+    total_cost += reg_term
     return total_cost / m
 
 
-def compute_gradient(x,y,w,b):
+def compute_gradient(x,y,w,b,lmd):
     m = x.shape[0]
     dj_dw = np.zeros(len(x[0]))
     dj_db = 0
@@ -41,6 +44,8 @@ def compute_gradient(x,y,w,b):
         dj_db += (f_wb[i]-y[i])
         for j in range(len(x[0])):
             dj_dw[j] += (f_wb[i]-y[i])*x[i][j]
+    for i in range(len(dj_dw)):
+        dj_dw[i] += lmd*w[i]
     dj_dw = dj_dw/m
     dj_db = dj_db/m
     return dj_dw , dj_db
@@ -50,8 +55,8 @@ def gradient_descent(x,y,w,b,alpha,iters):
     w_b_hist = []
     dw_db_hist = []
     for i in range(iters):
-        dj_dw , dj_db = compute_gradient(x,y,w,b)
-        cost_hist.append(compute_cost(x, y, w, b))
+        dj_dw , dj_db = compute_gradient(x,y,w,b, lmd)
+        cost_hist.append(compute_cost(x, y, w, b,lmd))
         w_b_hist.append((w.copy(), float(b)))
         dw_db_hist.append((dj_dw.copy(), float(dj_db)))
         w = w - alpha*dj_dw
@@ -65,6 +70,7 @@ def gradient_descent(x,y,w,b,alpha,iters):
 
 alpha = 1e-3
 iters = 10000
+lmd = 0.6
 
 
 best_wb, best_cost, steps , alpha_final ,cost_hist , dw_db_hist= gradient_descent(x_train, y, w, b, alpha, iters)
