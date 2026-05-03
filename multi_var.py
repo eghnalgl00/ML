@@ -93,7 +93,7 @@ w = np.array([6,6,6])
 b = 19
 alpha = 3e-1
 iters = 10000
-lmd = 0.6
+lmd = 1e-3
 
 best_wb, best_cost, steps , alpha_final ,cost_hist , dw_db_hist= gradient_descent(norm_x, y_train, w, b, alpha, iters)
 w_1, b_1 = best_wb
