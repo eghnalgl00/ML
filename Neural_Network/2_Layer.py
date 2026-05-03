@@ -29,9 +29,9 @@ def sequential(x):
 w1 = np.array([[1,2,3],[4,5,6]]) / 10000000
 w2 = np.array([[1,2,3,4],[4,5,6,7],[7,8,9,10]]) / 1000000
 w3 = np.array([[1],[2],[3],[4]]) / 10000000
-b1 = np.array([1,2,3]) / 1000000
-b2 = np.array([1,2,3,4]) / 1000000
-b3 = np.array([1]) / 1000000
+b1 = np.array([1,2,3]) 
+b2 = np.array([1,2,3,4]) 
+b3 = np.array([1]) 
 
 for i, x in enumerate(x_train):
     print(f"Sample {i}: {sequential(x)}")
