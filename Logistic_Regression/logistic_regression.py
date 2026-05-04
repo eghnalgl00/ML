@@ -27,12 +27,11 @@ def compute_cost(x, y, w, b, lmd):
     f_wb = g(z(x, w, b))
     total_cost = 0.0
     reg_term = 0.0
-    for i in range(m):
-        L = -y[i] * np.log(f_wb[i]) - (1 - y[i]) * np.log(1 - f_wb[i])
-        total_cost += L
-    reg_term += lmd * sum(w**2) / 2
+    L = -y * np.log(f_wb) - (1-y) * np.log(1-f_wb)
+    total_cost = np.sum(L) / m
+    reg_term += lmd * np.sum(w**2) / (2*m)
     total_cost += reg_term
-    return total_cost / m
+    return total_cost
 
 
 def compute_gradient(x,y,w,b,lmd):
