@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import math
 
 size = np.array([
     40, 45, 50, 55, 60,
@@ -37,7 +35,7 @@ x_min = np.min(x_train, axis=0)
 x_max = np.max(x_train, axis=0)
 
 norm_x = (x_train - mean) / std
-norm_x_2 = (x_train - mean) / (x_max - x_min)
+norm_x_2 = (x_train - x_min) / (x_max - x_min)
 
 
 
@@ -46,11 +44,10 @@ def compute_cost(x,y,w,b,lmd):
     f_wb = 0
     total_cost = 0
     reg_term = 0
+    f_wb = np.matmul(x,w) + b
     for i in range(m):
-        f_wb = np.dot(w,x[i]) + b
-        total_cost += (f_wb-y[i])**2
-    for i in range(len(x[0])):
-        reg_term += w[i]**2
+        total_cost += (y[i] - f_wb[i])**2
+    reg_term = (np.sum(w**2))  
     total_cost += lmd*reg_term
     total_cost = total_cost/(2*m)
     return total_cost
