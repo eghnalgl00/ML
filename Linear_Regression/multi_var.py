@@ -34,8 +34,7 @@ std  = np.std(x_train, axis=0)
 x_min = np.min(x_train, axis=0)
 x_max = np.max(x_train, axis=0)
 
-norm_x = (x_train - mean) / std
-norm_x_2 = (x_train - x_min) / (x_max - x_min)
+x_norm = (x_train - mean) / std
 
 
 
@@ -92,7 +91,7 @@ alpha = 3e-1
 iters = 10000
 lmd = 1e-3
 
-best_wb, best_cost, steps , alpha_final ,cost_hist , dw_db_hist= gradient_descent(norm_x, y_train, w, b, alpha, iters)
+best_wb, best_cost, steps , alpha_final ,cost_hist , dw_db_hist= gradient_descent(x_norm, y_train, w, b, alpha, iters)
 w_1, b_1 = best_wb
 
 print(best_wb, best_cost, steps , alpha_final)
