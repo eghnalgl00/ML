@@ -55,20 +55,45 @@ class Value:
         return f"Value(data={self.data})"
 
     def __add__(self,other):
+        other = other if isinstance(other ,Value) else Value(other)
         out = Value(self.data + other.data , (self,other) , _op = "+")
         def _backward():
             self.grad += 1.0 * out.grad
             other.grad += 1.0 * out.grad
         out._backward = _backward
-        return out    
+        return out  
+
+    def __neg__(self):
+        return self * -1
+
+    def __sub__(self,other):
+        return self + (-other)
 
     def __mul__(self,other):
+        other = other if isinstance(other ,Value) else Value(other)
         out = Value(self.data * other.data , (self,other) , _op = "*")
         def _backward():
             self.grad += other.data * out.grad
             other.grad += self.data * out.grad
         out._backward = _backward
         return out 
+
+    def __rmul__(self,other):
+        return self * other
+
+
+    def __pow__(self,other):
+        assert isinstance(other ,(int,float))
+        out = Value(self.data ** other , (self , ) , f"** {other}")
+
+        def _backward():
+            self.grad += other*(self.data ** (other - 1)) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def __truediv__(self,other):
+        return self * other**-1
 
     def tanh(self):
         x = self.data
@@ -79,6 +104,15 @@ class Value:
             self.grad += (1 - t**2) * out.grad
 
         out._backward = _backward
+        return out
+
+    def exp(self):
+        x = self.data
+        out = Value(math.exp(x) , (self , ) , "exp")
+        def _backward():
+            self.grad += out.data * out.grad
+
+        out._backward = _backward     
         return out
 
     def backward(self):
@@ -112,6 +146,16 @@ x1w1x2w2 = x1w1 + x2w2 ; x1w1x2w2.label = "x1w1x2w2"
 n = x1w1x2w2 + b ; label = "n"
 o = n.tanh() ; o.label = "o"
 
-
 o.backward()
-draw_dot(o).render()
+
+a = Value(2.0 , label = "a")
+b = Value(3.0 , label = "b")
+c = b + -1*a ; c.label = "c"
+d = b ** a.data ; d.label = "d"
+e = c * d ; e.label = "e"
+f = (e + -1*8).exp() ; f.label = "f"
+f.backward() ; draw_dot(f).render()
+
+q = Value(3.0)
+print(-q)
+
