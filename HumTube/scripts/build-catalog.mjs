@@ -176,13 +176,21 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
 
   // Round-robin: every person's first query before anyone's second, so a
   // quota-limited run still covers as many people as possible.
+  // The existing output file counts as a cache too: cloud sessions and fresh
+  // clones start without .cache/, and re-searching everyone would waste a day's quota.
+  const previous = opts.fresh ? null : await readJson(opts.out, null);
+  const inPrevious = (personId, query) => {
+    const r = previous?.people?.[personId];
+    return Boolean(r?.queries?.includes(query) && !stale(r.searchedAt, opts.refreshMs));
+  };
+
   const plan = [];
   for (let qi = 0; qi < opts.queriesPerPerson; qi += 1) {
     for (const p of opts.people) {
       const query = queriesFor(p)[qi];
       if (!query) continue;
       const entry = cache.searches[searchKey(p.id, query, opts.order)];
-      if (stale(entry?.fetchedAt, opts.refreshMs)) plan.push({ person: p, query });
+      if (stale(entry?.fetchedAt, opts.refreshMs) && !inPrevious(p.id, query)) plan.push({ person: p, query });
     }
   }
 
@@ -307,7 +315,6 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
 
   // A fresh clone has a committed catalog but no .cache/. Keep the people that
   // aren't cached yet instead of silently dropping them from the output.
-  const previous = opts.fresh ? null : await readJson(opts.out, null);
   const carry = Object.keys(previous?.people ?? {}).filter((id) => PEOPLE_BY_ID.has(id) && !catalog.people[id]);
   if (carry.length) {
     const keep = new Set(carry);

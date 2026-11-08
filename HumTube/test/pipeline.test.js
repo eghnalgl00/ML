@@ -155,6 +155,13 @@ test('pipeline: a fresh clone (no cache) never loses the committed catalog', asy
   cat = JSON.parse(await readFile(out, 'utf8'));
   assert.deepEqual(cat.videos.map((v) => v.id).sort(), ['churchDoc01', 'churchHitl1', 'gandhiFilm1']);
 
+  // People already in the committed catalog aren't searched again.
+  const again = createMockFetch();
+  const r = await run(['--people', 'winston-churchill,mohandas-gandhi', '--out', out, '--cache', cache], { env: {}, log: quiet, fetchImpl: again.fetchImpl });
+  assert.equal(r.exitCode, 0);
+  assert.equal(again.searches, 0);
+  assert.equal(r.catalog.videos.length, 3);
+
   // --fresh drops what isn't cached.
   const fresh = await run(['--people', 'mohandas-gandhi', '--out', out, '--cache', cache, '--offline', '--fresh'], { env: {}, log: quiet });
   assert.deepEqual(fresh.catalog.videos.map((v) => v.id), ['gandhiFilm1']);
