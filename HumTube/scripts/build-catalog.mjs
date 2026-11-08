@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { PEOPLE, PEOPLE_BY_ID, CATEGORIES, queriesFor } from '../src/core/people.js';
+import { PEOPLE, PEOPLE_BY_ID, CATEGORIES, searchesFor } from '../src/core/people.js';
 import { DEFAULT_THRESHOLDS, REJECTION_LABELS } from '../src/core/filters.js';
 import { createClient, UNIT_COST, YouTubeError } from '../src/core/youtube.js';
 import { buildCatalog, channelIdsToCheck, mergeCatalogs } from '../src/core/catalog.js';
@@ -28,10 +28,11 @@ Usage: YOUTUBE_API_KEY=... node scripts/build-catalog.mjs [options]
 Selection
   --people <ids>          comma-separated person ids (default: all 100)
   --category <id>         ${CATEGORIES.map((c) => c.id).join(' | ')}
-  --queries <n>           search queries per person, 1-3 (default 1)
+  --queries <n>           searches per person, 1-3 (default 2: the name sorted by
+                          view count, then "<name> documentary" sorted by relevance)
 
 Search
-  --order <o>             viewCount | relevance (default viewCount)
+  --order <o>             auto | viewCount | relevance (default auto, as above)
   --lang <code>           relevanceLanguage (default en)
   --refresh-days <n>      redo searches older than n days (default 30)
   --stats-days <n>        refresh view/like/subscriber counts older than n days (default 7)
@@ -41,6 +42,7 @@ Quality bar (defaults are HumTube's rules)
   --min-likes <n>         default ${DEFAULT_THRESHOLDS.minLikes}
   --min-subscribers <n>   default ${DEFAULT_THRESHOLDS.minSubscribers}
   --min-duration <sec>    default ${DEFAULT_THRESHOLDS.minDurationSec} (drops Shorts; 0 disables)
+  --language <code>       default ${DEFAULT_THRESHOLDS.language} (drops videos in other languages; "any" disables)
 
 Quota & output
   --budget <units>        max quota units this run may spend (default 9500;
@@ -64,8 +66,8 @@ function parseCli(argv) {
     options: {
       people: { type: 'string' },
       category: { type: 'string' },
-      queries: { type: 'string', default: '1' },
-      order: { type: 'string', default: 'viewCount' },
+      queries: { type: 'string', default: '2' },
+      order: { type: 'string', default: 'auto' },
       lang: { type: 'string', default: 'en' },
       'refresh-days': { type: 'string', default: '30' },
       'stats-days': { type: 'string', default: '7' },
@@ -73,6 +75,7 @@ function parseCli(argv) {
       'min-likes': { type: 'string' },
       'min-subscribers': { type: 'string' },
       'min-duration': { type: 'string' },
+      language: { type: 'string' },
       budget: { type: 'string', default: '9500' },
       offline: { type: 'boolean', default: false },
       fresh: { type: 'boolean', default: false },
@@ -89,7 +92,7 @@ function parseCli(argv) {
     if (!Number.isFinite(n) || n < 0) throw new Error(`--${name} must be a non-negative number`);
     return n;
   };
-  if (!['viewCount', 'relevance'].includes(values.order)) throw new Error('--order must be viewCount or relevance');
+  if (!['auto', 'viewCount', 'relevance'].includes(values.order)) throw new Error('--order must be auto, viewCount or relevance');
 
   let people = PEOPLE;
   if (values.category) {
@@ -106,7 +109,7 @@ function parseCli(argv) {
   return {
     help: values.help,
     people,
-    queriesPerPerson: Math.max(1, Math.min(3, Math.floor(num('queries', 1)))),
+    queriesPerPerson: Math.max(1, Math.min(3, Math.floor(num('queries', 2)))),
     order: values.order,
     lang: values.lang,
     refreshMs: num('refresh-days', 30) * DAY,
@@ -116,6 +119,7 @@ function parseCli(argv) {
       minLikes: num('min-likes', DEFAULT_THRESHOLDS.minLikes),
       minSubscribers: num('min-subscribers', DEFAULT_THRESHOLDS.minSubscribers),
       minDurationSec: num('min-duration', DEFAULT_THRESHOLDS.minDurationSec),
+      language: values.language == null ? DEFAULT_THRESHOLDS.language : values.language === 'any' ? '' : values.language,
     },
     budget: num('budget', 9500),
     offline: values.offline,
@@ -179,6 +183,7 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
   // The existing output file counts as a cache too: cloud sessions and fresh
   // clones start without .cache/, and re-searching everyone would waste a day's quota.
   const previous = opts.fresh ? null : await readJson(opts.out, null);
+  const orderFor = (s) => (opts.order === 'auto' ? s.order : opts.order);
   const inPrevious = (personId, query) => {
     const r = previous?.people?.[personId];
     return Boolean(r?.queries?.includes(query) && !stale(r.searchedAt, opts.refreshMs));
@@ -187,19 +192,20 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
   const plan = [];
   for (let qi = 0; qi < opts.queriesPerPerson; qi += 1) {
     for (const p of opts.people) {
-      const query = queriesFor(p)[qi];
-      if (!query) continue;
-      const entry = cache.searches[searchKey(p.id, query, opts.order)];
-      if (stale(entry?.fetchedAt, opts.refreshMs) && !inPrevious(p.id, query)) plan.push({ person: p, query });
+      const s = searchesFor(p)[qi];
+      if (!s) continue;
+      const order = orderFor(s);
+      const entry = cache.searches[searchKey(p.id, s.query, order)];
+      if (stale(entry?.fetchedAt, opts.refreshMs) && !inPrevious(p.id, s.query)) plan.push({ person: p, query: s.query, order });
     }
   }
 
   log(`HumTube catalog builder — ${opts.people.length} ${opts.people.length === 1 ? 'person' : 'people'}, ${opts.queriesPerPerson} quer${opts.queriesPerPerson === 1 ? 'y' : 'ies'} each`);
-  log(`Bar: ≥${fmt(opts.thresholds.minViews)} views · ≥${fmt(opts.thresholds.minLikes)} likes · channel ≥${fmt(opts.thresholds.minSubscribers)} subscribers · ≥${opts.thresholds.minDurationSec}s long`);
+  log(`Bar: ≥${fmt(opts.thresholds.minViews)} views · ≥${fmt(opts.thresholds.minLikes)} likes · channel ≥${fmt(opts.thresholds.minSubscribers)} subscribers · ≥${opts.thresholds.minDurationSec}s long · language ${opts.thresholds.language || 'any'}`);
   log(`Searches needed: ${plan.length} (≈${fmt(plan.length * UNIT_COST.search)} units). Budget this run: ${fmt(opts.budget)} units.`);
 
   if (opts.dryRun) {
-    for (const { person, query } of plan) log(`  would search: ${person.id.padEnd(24)} "${query}"`);
+    for (const { person, query, order } of plan) log(`  would search: ${person.id.padEnd(24)} "${query}" (${order})`);
     return { exitCode: 0, plan };
   }
 
@@ -224,30 +230,30 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
     const scope = new Set(opts.people.map((p) => p.id));
     const cachedStale = new Set(
       Object.values(cache.searches)
-        .filter((s) => scope.has(s.personId) && s.order === opts.order)
+        .filter((s) => scope.has(s.personId))
         .flatMap((s) => s.videoIds)
         .filter((id) => stale(cache.videos[id]?.fetchedAt, opts.statsMs)),
     ).size;
     const baseReserve = 2 * Math.ceil(cachedStale / 50) + 4;
     let done = 0;
-    for (const { person, query } of plan) {
+    for (const { person, query, order } of plan) {
       const reserve = baseReserve + 2 * (done + 1);
       if (!canSpend(UNIT_COST.search + reserve)) {
         log(`Budget reached after ${done} searches; ${plan.length - done} left for the next run.`);
         break;
       }
       try {
-        const r = await client.search(query, { order: opts.order, relevanceLanguage: opts.lang });
-        cache.searches[searchKey(person.id, query, opts.order)] = {
+        const r = await client.search(query, { order, relevanceLanguage: opts.lang });
+        cache.searches[searchKey(person.id, query, order)] = {
           personId: person.id,
           query,
-          order: opts.order,
+          order,
           fetchedAt: new Date().toISOString(),
           videoIds: r.items.map((i) => i.videoId),
         };
         await saveCache('searches');
         done += 1;
-        log(`  searched ${String(done).padStart(3)}/${plan.length}  ${person.name} — "${query}" → ${r.items.length} results`);
+        log(`  searched ${String(done).padStart(3)}/${plan.length}  ${person.name} — "${query}" (${order}) → ${r.items.length} results`);
       } catch (err) {
         if (err instanceof YouTubeError && (err.isQuota || err.isAuth)) {
           quotaHit = err;
@@ -260,7 +266,7 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
 
   // Searches for the people in scope (cached ones included).
   const scopeIds = new Set(opts.people.map((p) => p.id));
-  const searchesInScope = Object.values(cache.searches).filter((s) => scopeIds.has(s.personId) && s.order === opts.order);
+  const searchesInScope = Object.values(cache.searches).filter((s) => scopeIds.has(s.personId));
 
   if (!opts.offline && !quotaHit) {
     try {
@@ -308,7 +314,7 @@ export async function run(argv = process.argv.slice(2), { env = process.env, log
   }
 
   // ── 4. Build the catalog from everything cached (all people, not just this run's).
-  const allSearches = Object.values(cache.searches).filter((s) => s.order === opts.order);
+  const allSearches = Object.values(cache.searches);
   const videos = Object.fromEntries(Object.entries(cache.videos).filter(([, e]) => e.video).map(([id, e]) => [id, e.video]));
   const channels = Object.fromEntries(Object.entries(cache.channels).filter(([, e]) => e.channel).map(([id, e]) => [id, e.channel]));
   let catalog = buildCatalog({ searches: allSearches, videos, channels, thresholds: opts.thresholds });

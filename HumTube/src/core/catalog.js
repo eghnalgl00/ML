@@ -10,7 +10,7 @@
 //               categoryId, topics: [...], personIds: [...], foundFor: [...] } ]
 // }
 
-import { PEOPLE, queriesFor } from './people.js';
+import { PEOPLE, searchesFor } from './people.js';
 import { DEFAULT_THRESHOLDS, makeMatcher, videoRejection, channelRejection } from './filters.js';
 import { classify } from './topics.js';
 
@@ -164,17 +164,16 @@ export function mergeCatalogs(base, ...fragments) {
 
 /**
  * Live mode: search YouTube for one person right now and return a catalog
- * fragment. Costs ~102 quota units per query (search + videos + channels).
+ * fragment. Costs ~100 quota units per query, plus a few for stats.
  */
 export async function fetchPersonLive(person, {
   client,
   thresholds = DEFAULT_THRESHOLDS,
-  maxQueries = 1,
-  order = 'viewCount',
+  maxQueries = 2,
   relevanceLanguage = 'en',
 }) {
   const searches = [];
-  for (const query of queriesFor(person).slice(0, maxQueries)) {
+  for (const { query, order } of searchesFor(person).slice(0, maxQueries)) {
     const r = await client.search(query, { order, relevanceLanguage });
     searches.push({
       personId: person.id,

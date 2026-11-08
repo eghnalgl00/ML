@@ -78,12 +78,26 @@ test('matchers: disambiguation and exclusions', () => {
   assert.ok(churchill.own(video({ title: 'Darkest Hour', tags: ['churchill', 'ww2'] })));
 });
 
+test('language filter', () => {
+  const m = makeMatcher(person('mohandas-gandhi'));
+  const ok = video({ title: 'Mahatma Gandhi documentary' });
+  assert.equal(videoRejection({ ...ok, lang: 'en-GB' }, m), null);
+  assert.equal(videoRejection({ ...ok, lang: 'hi' }, m), 'language');
+  assert.equal(videoRejection({ ...ok, title: 'ऐसे हुई थी Mahatma Gandhi की हत्या... (3D Animation)' }, m), 'language');
+  assert.equal(videoRejection({ ...ok, lang: 'hi' }, m, { ...DEFAULT_THRESHOLDS, language: '' }), null, 'language check can be disabled');
+  assert.equal(videoRejection({ ...ok, lang: null }, m), null, 'no declared language + Latin title passes');
+});
+
 test('global exclusions', () => {
   assert.ok(isGloballyExcluded('Hitler edit 🔥 #shorts'));
   assert.ok(isGloballyExcluded('Downfall parody: Hitler finds out'));
   assert.ok(isGloballyExcluded('Gandhi vs Martin Luther King Jr. Epic Rap Battles of History'));
   assert.ok(!isGloballyExcluded('Edited footage of Churchill restored')); // "edited" is not "edit"
   assert.ok(!isGloballyExcluded('Winston Churchill documentary'));
+  assert.ok(isGloballyExcluded('Mahatma Gandhi Drawing Portrait Very Easy'));
+  assert.ok(isGloballyExcluded('Let It Be - The Beatles (Boyce Avenue acoustic cover)'));
+  assert.ok(isGloballyExcluded('She Had A Higher IQ Than Albert Einstein!', 'MrBallen Shorts'));
+  assert.ok(!makeMatcher(person('winston-churchill')).own(video({ title: 'Jack Harlow - Churchill Downs feat. Drake' })));
 });
 
 test('quality bar: views, likes, subscribers, duration, availability', () => {
@@ -128,4 +142,11 @@ test('ISO 8601 durations', () => {
   assert.equal(parseIsoDuration('P1DT2H'), 93600);
   assert.equal(parseIsoDuration('P0D'), 0);
   assert.equal(parseIsoDuration(undefined), 0);
+});
+
+test('home feed mixes people instead of stacking one person’s videos', async () => {
+  const { mixByPerson } = await import('../src/app/views.js');
+  const v = (id, pid, views) => ({ id, views, personIds: [pid], foundFor: [pid] });
+  const list = [v('b1', 'the-beatles', 900), v('b2', 'the-beatles', 800), v('b3', 'the-beatles', 700), v('c1', 'winston-churchill', 50), v('g1', 'mohandas-gandhi', 20), v('c2', 'winston-churchill', 10)];
+  assert.deepEqual(mixByPerson(list).map((x) => x.id), ['b1', 'c1', 'g1', 'b2', 'c2', 'b3']);
 });

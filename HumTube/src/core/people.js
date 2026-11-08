@@ -63,7 +63,8 @@ export const PEOPLE = [
     match: ['Ben-Gurion', 'Ben Gurion'] },
   { id: 'winston-churchill', category: 'leaders', name: 'Winston Churchill', years: '1874–1965',
     blurb: 'Britain’s wartime prime minister who refused to yield to Hitler.',
-    match: ['Churchill'] },
+    match: ['Churchill'],
+    exclude: ['Churchill Downs', 'Churchill Show', 'Kentucky Derby'] },
   { id: 'mohandas-gandhi', category: 'leaders', name: 'Mohandas Gandhi', years: '1869–1948',
     blurb: 'Led India to independence through mass nonviolent resistance.',
     queries: ['Mahatma Gandhi', 'Mahatma Gandhi documentary'],
@@ -451,6 +452,14 @@ export const CATEGORY_BY_ID = new Map(CATEGORIES.map((c) => [c.id, c]));
 
 export function queriesFor(person) {
   return person.queries ?? [person.name, `${person.name} documentary`];
+}
+
+// The first search sorts by view count (finds the videos that clear the bar);
+// later ones sort by relevance (finds actual documentaries and lectures).
+export const SEARCH_ORDERS = ['viewCount', 'relevance', 'relevance'];
+
+export function searchesFor(person) {
+  return queriesFor(person).map((query, i) => ({ query, order: SEARCH_ORDERS[i] ?? 'relevance' }));
 }
 
 export function monogram(person) {

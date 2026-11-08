@@ -8,6 +8,7 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   minLikes: 50_000, // video likes (videos with hidden likes fail)
   minSubscribers: 100_000, // channel subscribers (hidden counts fail)
   minDurationSec: 60, // drops YouTube Shorts-style clips; 0 disables
+  language: 'en', // drops videos in other languages; '' disables
 });
 
 // Titles containing any of these are skipped for everyone: they are popular
@@ -16,8 +17,13 @@ export const GLOBAL_EXCLUDE = [
   'parody', 'parodies', 'meme', 'memes', 'edit', 'edits', 'ytp', 'shorts', 'tiktok',
   'funny moments', 'prank', 'roblox', 'minecraft', 'fortnite', 'gta', 'hoi4',
   'hearts of iron', 'rap battle', 'rap battles', 'asmr', 'ai voice', 'ai cover',
-  'sings ai', 'try not to laugh',
+  'sings ai', 'try not to laugh', 'drawing', 'how to draw', 'acoustic cover',
+  'piano cover', 'guitar cover', 'drum cover', 'cover by', 'karaoke',
+  'subtitulada', 'subtitulado', 'legendado', 'en espanol', 'sub espanol',
 ].map(fold);
+
+// Channels whose names mark them as clip/short-form outlets.
+const CHANNEL_EXCLUDE = ['shorts', 'tiktok', 'memes'].map(fold);
 
 const DESCRIPTION_HEAD = 300;
 
@@ -51,18 +57,33 @@ export function makeMatcher(person) {
   };
 }
 
-export function isGloballyExcluded(title) {
-  return hasAnyPhrase(fold(title), GLOBAL_EXCLUDE);
+export function isGloballyExcluded(title, channelTitle = '') {
+  return hasAnyPhrase(fold(title), GLOBAL_EXCLUDE) || hasAnyPhrase(fold(channelTitle), CHANNEL_EXCLUDE);
+}
+
+/**
+ * Language check. Uses YouTube's declared audio language when the uploader set
+ * one; otherwise rejects titles written mostly in a non-Latin script.
+ */
+export function isWrongLanguage(video, language) {
+  if (!language) return false;
+  if (video.lang) return !String(video.lang).toLowerCase().startsWith(language.toLowerCase());
+  if (language.toLowerCase() !== 'en') return false;
+  // Count letters and combining marks (Indic vowel signs are marks).
+  const chars = String(video.title ?? '').match(/[\p{L}\p{M}]/gu) ?? [];
+  const other = chars.filter((c) => !/[\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u.test(c)).length;
+  return other >= 8 || (chars.length >= 6 && other / chars.length > 0.3);
 }
 
 /**
  * Checks that need only the video itself (no channel lookup). Returns the
  * first failing reason, or null when the video passes.
- * Reasons: unavailable | excluded | relevance | views | likes | duration
+ * Reasons: unavailable | excluded | language | relevance | views | likes | duration
  */
 export function videoRejection(video, matcher, thresholds = DEFAULT_THRESHOLDS) {
   if (!video || video.privacy !== 'public' || video.live !== 'none') return 'unavailable';
-  if (isGloballyExcluded(video.title)) return 'excluded';
+  if (isGloballyExcluded(video.title, video.channelTitle)) return 'excluded';
+  if (isWrongLanguage(video, thresholds.language)) return 'language';
   if (matcher && !matcher.own(video)) return 'relevance';
   if (!(video.views >= thresholds.minViews)) return 'views';
   if (!(video.likes != null && video.likes >= thresholds.minLikes)) return 'likes';
@@ -79,7 +100,8 @@ export function channelRejection(channel, thresholds = DEFAULT_THRESHOLDS) {
 export const REJECTION_LABELS = {
   missing: 'details unavailable',
   unavailable: 'private, live or removed',
-  excluded: 'memes, edits or game footage',
+  excluded: 'memes, edits, covers, tutorials or game footage',
+  language: 'not in English',
   relevance: 'not clearly about this person',
   views: 'under the view minimum',
   likes: 'under the like minimum (or likes hidden)',

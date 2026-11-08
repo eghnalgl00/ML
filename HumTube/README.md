@@ -18,7 +18,8 @@ A video is listed only if **all** of these hold:
 | Channel subscribers | **≥ 100,000** (hidden counts fail) |
 | Length | > 60 s, so YouTube Shorts are skipped |
 | Relevance | the person’s name or a defining term (“Tank Man”, “Watson and Crick”) is in the title, tags or the start of the description |
-| Not junk | no memes, parodies, fan edits, rap battles or game footage |
+| Language | English (the uploader’s declared language, or the title’s script); `--language any` turns this off |
+| Not junk | no memes, parodies, fan edits, rap battles, covers, drawing tutorials, game footage or “…Shorts” channels |
 
 The rules live in [`src/core/filters.js`](src/core/filters.js). The catalog
 builder and the in-browser live mode share that file, so both always decide the
@@ -62,18 +63,25 @@ This searches YouTube for each person, checks views, likes and subscriber counts
 and writes `data/catalog.json`. Commit that file and the site works for everyone,
 with no key needed to browse.
 
-**Quota.** The free quota is 10,000 units a day. One search costs 100 units, and
-stats lookups cost 1 unit per 50 videos. One query for each of the 100 people is
-~10,000 units, so the builder stops at its budget (default 9,500). All progress
-is cached in `.cache/`, so running the **same command the next day continues
-where it left off**.
+**Searches.** Each person gets two searches: their name sorted by **view count**
+(finds the popular videos that clear the bar) and “<name> documentary” sorted by
+**relevance** (finds actual documentaries and lectures). Sorting only by view count
+let in rap songs, drawing tutorials and quote reels; sorting only by relevance
+found good documentaries, but few of them reach 50K likes.
+
+**Quota.** The free quota is 10,000 units a day. A search costs 100 units, and
+stats lookups cost 1 unit per 50 videos. Two searches for 100 people is ~20,000
+units, so a full build takes **two days**. The builder stops at its budget
+(default 9,500), searching everyone’s first query before anyone’s second. Progress
+is cached in `.cache/` and in `data/catalog.json` itself, so running the **same
+command the next day continues where it left off**, even from a fresh clone.
 
 Useful options (`npm run build:catalog -- --help` lists them all):
 
 ```bash
 npm run build:catalog -- --category leaders          # one TIME category
 npm run build:catalog -- --people winston-churchill,pele
-npm run build:catalog -- --queries 2                 # also search "<name> documentary" (2× quota)
+npm run build:catalog -- --queries 1                 # only the by-views search (half the quota)
 npm run build:catalog -- --offline --min-likes 20000 # rebuild from cache with a different bar, no API calls
 npm run build:catalog -- --dry-run                   # show the plan and quota estimate
 ```

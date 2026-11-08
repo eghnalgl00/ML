@@ -72,7 +72,7 @@ async function tmp() {
 test('pipeline: builds, caches, resumes and rebuilds offline', async (t) => {
   const { dir, out, cache } = await tmp();
   t.after(() => rm(dir, { recursive: true, force: true }));
-  const args = ['--people', 'winston-churchill,mohandas-gandhi,nelson-mandela', '--out', out, '--cache', cache];
+  const args = ['--people', 'winston-churchill,mohandas-gandhi,nelson-mandela', '--queries', '1', '--out', out, '--cache', cache];
 
   const m1 = createMockFetch();
   const r1 = await run(args, { env: {}, log: quiet, fetchImpl: m1.fetchImpl });
@@ -97,10 +97,21 @@ test('pipeline: builds, caches, resumes and rebuilds offline', async (t) => {
   assert.deepEqual(r3.catalog.videos.map((v) => v.id).sort(), ['churchDoc01', 'gandhiFilm1', 'mandelaDoc1'].sort());
 });
 
+test('pipeline: by default each person gets a by-views search, then a by-relevance documentary search', async () => {
+  const lines = [];
+  const r = await run(['--people', 'winston-churchill,pele', '--dry-run', '--cache', '/nonexistent-humtube/cache', '--out', '/nonexistent-humtube/catalog.json'], { log: (l) => lines.push(l) });
+  assert.deepEqual(r.plan.map((p) => [p.person.id, p.query, p.order]), [
+    ['winston-churchill', 'Winston Churchill', 'viewCount'],
+    ['pele', 'Pelé', 'viewCount'],
+    ['winston-churchill', 'Winston Churchill documentary', 'relevance'],
+    ['pele', 'Pelé documentary', 'relevance'],
+  ]);
+});
+
 test('pipeline: respects the quota budget and resumes the next day', async (t) => {
   const { dir, out, cache } = await tmp();
   t.after(() => rm(dir, { recursive: true, force: true }));
-  const args = ['--people', 'winston-churchill,mohandas-gandhi,nelson-mandela', '--out', out, '--cache', cache];
+  const args = ['--people', 'winston-churchill,mohandas-gandhi,nelson-mandela', '--queries', '1', '--out', out, '--cache', cache];
 
   const m1 = createMockFetch();
   const r1 = await run([...args, '--budget', '210'], { env: {}, log: quiet, fetchImpl: m1.fetchImpl });

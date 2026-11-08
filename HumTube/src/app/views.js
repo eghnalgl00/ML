@@ -178,6 +178,25 @@ export function sidebar(index, route) {
     <p class="guide-foot">Based on TIME’s 100 Persons of the Century. Not affiliated with TIME or YouTube.</p>`;
 }
 
+/**
+ * Feed order: everyone's most-watched video first, then everyone's second, and
+ * so on, so a few very popular people (or music videos) can't fill the page.
+ */
+export function mixByPerson(list) {
+  const groups = new Map();
+  for (const v of list) {
+    const id = leadPerson(v)?.id ?? '';
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(v);
+  }
+  const queues = [...groups.values()].map((q) => [...q].sort((a, b) => b.views - a.views));
+  queues.sort((a, b) => b[0].views - a[0].views);
+  const out = [];
+  const rounds = Math.max(0, ...queues.map((q) => q.length));
+  for (let i = 0; i < rounds; i += 1) for (const q of queues) if (q[i]) out.push(q[i]);
+  return out;
+}
+
 // ── Home (and topic pages, which are home with a chip selected) ─────────
 export function home(index, topicId, ctx) {
   if (!index.list.length) return emptyHome(index, ctx);
@@ -187,7 +206,7 @@ export function home(index, topicId, ctx) {
     { id: 'all', label: 'All', href: href.home() },
     ...topicsIn(index.list).map((t) => ({ id: t.id, label: t.label, href: href.home({ topic: t.id }) })),
   ];
-  return `${chipBar(items, topic, { sticky: true })}${pagedGrid(list)}`;
+  return `${chipBar(items, topic, { sticky: true })}${pagedGrid(mixByPerson(list))}`;
 }
 
 function emptyHome(index, ctx) {
