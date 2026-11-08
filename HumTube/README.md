@@ -7,6 +7,24 @@ HumTube collects YouTube videos about TIME’s
 documentaries, war history, speeches, films and trailers, interviews, archival
 footage and explainers. Only well-received videos from established channels get in.
 
+## Use it on YouTube (browser extension)
+
+HumTube runs **on youtube.com itself**. You stay on real YouTube: signed in, with
+the same channels, comments, likes and subscriptions. Only the videos that appear
+change:
+
+- **Home**: YouTube's feed is replaced by the HumTube videos, with topic chips.
+- **Everywhere**: video tiles that aren't HumTube videos are hidden
+  (recommendations, search results, Shorts shelves).
+- **Watch page**: “More about <person>” from HumTube at the top of the sidebar.
+- **Search**: matching HumTube videos are listed above YouTube's results.
+- A **HumTube on / off** button in YouTube's top bar switches back to plain YouTube.
+
+Install (Chrome, Edge, Brave): open `chrome://extensions`, turn on **Developer
+mode**, click **Load unpacked** and pick the `HumTube/extension` folder. After
+rebuilding the catalog, run `npm run build:extension` and click the reload icon
+on the extension.
+
 ## The quality bar
 
 A video is listed only if **all** of these hold:

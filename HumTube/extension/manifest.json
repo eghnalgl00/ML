@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "HumTube",
+  "version": "1.0.0",
+  "description": "YouTube, showing only history videos about TIME's 100 most important people of the 20th century.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["catalog.json"], "matches": ["https://www.youtube.com/*"] }
+  ]
+}
