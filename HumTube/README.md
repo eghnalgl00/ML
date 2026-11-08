@@ -16,14 +16,13 @@ A video is listed only if **all** of these hold:
 | Video views | **≥ 500,000** |
 | Video likes | **≥ 50,000** (hidden like counts can’t be checked, so they fail) |
 | Channel subscribers | **≥ 100,000** (hidden counts fail) |
-| Length | > 60 s, so YouTube Shorts are skipped |
-| Relevance | the person’s name or a defining term (“Tank Man”, “Watson and Crick”) is in the title, tags or the start of the description |
-| Language | English (the uploader’s declared language, or the title’s script); `--language any` turns this off |
-| Not junk | no memes, parodies, fan edits, rap battles, covers, drawing tutorials, game footage or “…Shorts” channels |
+| Length | > 60 s, so YouTube Shorts are skipped (`--min-duration 0` keeps them) |
 
-The rules live in [`src/core/filters.js`](src/core/filters.js). The catalog
-builder and the in-browser live mode share that file, so both always decide the
-same way.
+Which videos are relevant is left to YouTube: each person gets one ordinary
+YouTube search (YouTube’s relevance ranking, the same as searching on
+youtube.com), and the results that pass the bar are kept in YouTube’s order.
+The rules live in [`src/core/filters.js`](src/core/filters.js); the catalog
+builder and the in-browser live mode share it.
 
 Every video is also tagged with topics, shown as filter chips: **War,
 Documentaries, Films, Speeches, Interviews, Biographies, Archive footage,
@@ -33,10 +32,9 @@ Explainers, Music, Sports** ([`src/core/topics.js`](src/core/topics.js)).
 
 The five TIME categories (20 people each) and the Person of the Century (Albert
 Einstein; runners-up FDR and Gandhi) are in
-[`src/core/people.js`](src/core/people.js). Each entry also holds its search
-queries and the match/exclude phrases that keep results on topic. For example,
-*Indira* Gandhi is kept off Mohandas Gandhi’s page, “Mandela effect” off
-Mandela’s, and “Kennedy Space Center” off the Kennedys’.
+[`src/core/people.js`](src/core/people.js). The YouTube search is the person’s
+name, or a clearer phrase where the name alone is ambiguous (“Tiananmen Square
+Tank Man” for the Unknown Rebel, “Bill Wilson Alcoholics Anonymous”).
 
 ## Quick start
 
@@ -63,25 +61,18 @@ This searches YouTube for each person, checks views, likes and subscriber counts
 and writes `data/catalog.json`. Commit that file and the site works for everyone,
 with no key needed to browse.
 
-**Searches.** Each person gets two searches: their name sorted by **view count**
-(finds the popular videos that clear the bar) and “<name> documentary” sorted by
-**relevance** (finds actual documentaries and lectures). Sorting only by view count
-let in rap songs, drawing tutorials and quote reels; sorting only by relevance
-found good documentaries, but few of them reach 50K likes.
-
 **Quota.** The free quota is 10,000 units a day. A search costs 100 units, and
-stats lookups cost 1 unit per 50 videos. Two searches for 100 people is ~20,000
-units, so a full build takes **two days**. The builder stops at its budget
-(default 9,500), searching everyone’s first query before anyone’s second. Progress
-is cached in `.cache/` and in `data/catalog.json` itself, so running the **same
-command the next day continues where it left off**, even from a fresh clone.
+stats lookups cost 1 unit per 50 videos, so all 100 people need ~10,200 units:
+slightly more than one day. The builder stops at its budget (default 9,500) and
+the **same command the next day continues where it left off**. Progress is
+cached in `.cache/` and in `data/catalog.json` itself, so this works from a
+fresh clone too.
 
 Useful options (`npm run build:catalog -- --help` lists them all):
 
 ```bash
 npm run build:catalog -- --category leaders          # one TIME category
 npm run build:catalog -- --people winston-churchill,pele
-npm run build:catalog -- --queries 1                 # only the by-views search (half the quota)
 npm run build:catalog -- --offline --min-likes 20000 # rebuild from cache with a different bar, no API calls
 npm run build:catalog -- --dry-run                   # show the plan and quota estimate
 ```

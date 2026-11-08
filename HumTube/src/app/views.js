@@ -1,7 +1,7 @@
 // HTML view renderers. Every dynamic string goes through `esc`.
 
 import {
-  PEOPLE, PEOPLE_BY_ID, CATEGORIES, CATEGORY_BY_ID, PERSON_OF_THE_CENTURY, monogram, queriesFor,
+  PEOPLE, PEOPLE_BY_ID, CATEGORIES, CATEGORY_BY_ID, PERSON_OF_THE_CENTURY, monogram, queryFor,
 } from '../core/people.js';
 import { ALL_TOPICS, TOPIC_BY_ID } from '../core/topics.js';
 import { fold } from '../core/text.js';
@@ -26,14 +26,20 @@ const thumb = (id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const thumbHq = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
 // ── Sorting ─────────────────────────────────────────────────────────────
+// Position in YouTube's search results for a person (videos from older catalogs
+// without ranks fall back to the end, by views).
+const rankFor = (v, personId) => v.ranks?.[personId] ?? 1e6 - Math.min(v.views, 1e6 - 1) / 1e6;
 const by = (key) => (a, b) => String(b[key] ?? '').localeCompare(String(a[key] ?? ''));
 export const SORTS = [
-  { id: 'views', label: 'Popular', fn: (a, b) => b.views - a.views },
+  { id: 'relevance', label: 'Relevance', fn: (a, b, pid) => rankFor(a, pid) - rankFor(b, pid) },
+  { id: 'views', label: 'Most viewed', fn: (a, b) => b.views - a.views },
   { id: 'newest', label: 'Latest', fn: by('publishedAt') },
   { id: 'oldest', label: 'Oldest', fn: (a, b) => by('publishedAt')(b, a) },
-  { id: 'likes', label: 'Most liked', fn: (a, b) => (b.likes ?? 0) - (a.likes ?? 0) },
 ];
-const sortBy = (list, id) => [...list].sort((SORTS.find((s) => s.id === id) ?? SORTS[0]).fn);
+const sortBy = (list, id, personId) => {
+  const sort = SORTS.find((s) => s.id === id) ?? SORTS[0];
+  return [...list].sort((a, b) => sort.fn(a, b, personId));
+};
 
 // ── Icons (24px outline) ────────────────────────────────────────────────
 const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" aria-hidden="true" class="i"${extra}>${d}</svg>`;
@@ -58,7 +64,7 @@ export function avatar(person, size = 'md') {
   return `<span class="avatar avatar--${size} cat-${person.category}" aria-hidden="true">${esc(monogram(person))}</span>`;
 }
 
-const leadPerson = (v) => PEOPLE_BY_ID.get(v.foundFor?.[0]) ?? PEOPLE_BY_ID.get(v.personIds[0]);
+const leadPerson = (v) => PEOPLE_BY_ID.get(v.personIds[0]);
 const metaLine = (v) => `${short(v.views)} views${v.publishedAt ? ` · ${timeAgo(v.publishedAt)}` : ''}`;
 const videoCount = (index, id) => index.byPerson.get(id)?.length ?? 0;
 
@@ -178,27 +184,30 @@ export function sidebar(index, route) {
     <p class="guide-foot">Based on TIME’s 100 Persons of the Century. Not affiliated with TIME or YouTube.</p>`;
 }
 
-const HISTORY_TOPICS = new Set(['war', 'documentary', 'film', 'speech', 'interview', 'biography', 'archival', 'explainer', 'sports']);
-
 /**
- * Feed order: everyone's most-watched video first, then everyone's second, and
- * so on, so a few very popular people can't fill the page. Videos with a history
- * topic come before songs and everything else: this is a history site first.
+ * Home feed in YouTube's order: every person's top YouTube result, then every
+ * person's second result, and so on (each round ordered by views).
  */
-export function mixByPerson(list) {
+export function youtubeOrder(list) {
   const groups = new Map();
   for (const v of list) {
-    const id = leadPerson(v)?.id ?? '';
-    if (!groups.has(id)) groups.set(id, []);
-    groups.get(id).push(v);
+    for (const id of v.personIds) {
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(v);
+    }
   }
-  // 0 for videos with a history topic (war, documentary, speech...), 1 for songs and the rest.
-  const rank = (v) => ((v.topics ?? []).some((t) => HISTORY_TOPICS.has(t)) ? 0 : 1);
-  const queues = [...groups.values()].map((q) => [...q].sort((a, b) => rank(a) - rank(b) || b.views - a.views));
-  queues.sort((a, b) => rank(a[0]) - rank(b[0]) || b[0].views - a[0].views);
+  const queues = [...groups].map(([id, q]) => [...q].sort((a, b) => rankFor(a, id) - rankFor(b, id)));
   const out = [];
+  const seen = new Set();
   const rounds = Math.max(0, ...queues.map((q) => q.length));
-  for (let i = 0; i < rounds; i += 1) for (const q of queues) if (q[i]) out.push(q[i]);
+  for (let i = 0; i < rounds; i += 1) {
+    const round = queues.map((q) => q[i]).filter((v) => v && !seen.has(v.id));
+    round.sort((a, b) => b.views - a.views);
+    for (const v of round) {
+      seen.add(v.id);
+      out.push(v);
+    }
+  }
   return out;
 }
 
@@ -211,7 +220,7 @@ export function home(index, topicId, ctx) {
     { id: 'all', label: 'All', href: href.home() },
     ...topicsIn(index.list).map((t) => ({ id: t.id, label: t.label, href: href.home({ topic: t.id }) })),
   ];
-  return `${chipBar(items, topic, { sticky: true })}${pagedGrid(mixByPerson(list))}`;
+  return `${chipBar(items, topic, { sticky: true })}${pagedGrid(youtubeOrder(list))}`;
 }
 
 function emptyHome(index, ctx) {
@@ -244,8 +253,8 @@ export function person(index, personId, params, ctx) {
   const c = CATEGORY_BY_ID.get(p.category);
   const all = index.byPerson.get(p.id) ?? [];
   const topic = params.get('topic') || 'all';
-  const sort = params.get('sort') || 'views';
-  const list = sortBy(topic === 'all' ? all : all.filter((v) => v.topics.includes(topic)), sort);
+  const sort = params.get('sort') || 'relevance';
+  const list = sortBy(topic === 'all' ? all : all.filter((v) => v.topics.includes(topic)), sort, p.id);
   const busy = ctx.busy.has(p.id);
   const err = ctx.errors.get(p.id);
 
@@ -253,7 +262,7 @@ export function person(index, personId, params, ctx) {
   if (ctx.hasKey) {
     buttons.push(`<button type="button" class="pill${all.length ? '' : ' pill--dark'}" data-action="fetch-live" data-person="${p.id}"${busy ? ' disabled aria-busy="true"' : ''}>${icons.refresh}<span>${busy ? 'Loading…' : all.length ? 'Refresh' : 'Load videos'}</span></button>`);
   }
-  buttons.push(`<a class="pill" href="${ytSearch(queriesFor(p)[0])}" target="_blank" rel="noopener noreferrer">${icons.ext}<span>Search on YouTube</span></a>`);
+  buttons.push(`<a class="pill" href="${ytSearch(queryFor(p))}" target="_blank" rel="noopener noreferrer">${icons.ext}<span>Search on YouTube</span></a>`);
 
   const head = `<header class="channel-head">
     ${avatar(p, 'xxl')}
@@ -275,7 +284,7 @@ export function person(index, personId, params, ctx) {
     return `${head}<div class="tabs"><span class="tab is-active">Videos</span></div><p class="message message--inline">${msg}</p>`;
   }
 
-  const keep = { sort: sort === 'views' ? null : sort };
+  const keep = { sort: sort === 'relevance' ? null : sort };
   const items = [
     { id: 'all', label: 'All', href: href.person(p.id, keep) },
     ...topicsIn(all).map((t) => ({ id: t.id, label: t.label, href: href.person(p.id, { topic: t.id, ...keep }) })),
@@ -294,11 +303,11 @@ export function watch(index, videoId, ctx) {
   const lead = leadPerson(v);
   const isSaved = ctx.saved.has(v.id);
 
-  // Up next: the lead person's other videos, then anyone else in this one.
+  // Up next: the lead person's other videos in YouTube's order, then anyone else in this one.
   const seen = new Set([v.id]);
   const take = (list) => list.filter((r) => !seen.has(r.id) && seen.add(r.id));
   const upNext = [
-    ...take(lead ? index.byPerson.get(lead.id) ?? [] : []).slice(0, 12),
+    ...take(lead ? sortBy(index.byPerson.get(lead.id) ?? [], 'relevance', lead.id) : []).slice(0, 12),
     ...take(people.filter((p) => p !== lead).flatMap((p) => index.byPerson.get(p.id) ?? [])).slice(0, 8),
   ];
   const ytUrl = `https://www.youtube.com/watch?v=${v.id}`;
@@ -345,7 +354,7 @@ export function search(index, q) {
     const f = fold(text);
     return words.every((w) => f.includes(` ${w}`));
   };
-  const people = PEOPLE.filter((p) => hit([p.name, ...p.match, CATEGORY_BY_ID.get(p.category).label].join(' ')));
+  const people = PEOPLE.filter((p) => hit([p.name, ...p.aliases, CATEGORY_BY_ID.get(p.category).label].join(' ')));
   const vids = index.list.filter((v) => hit(`${v.title} ${v.channelTitle} ${v.personIds.map((id) => PEOPLE_BY_ID.get(id)?.name).join(' ')}`));
   if (!people.length && !vids.length) return `<p class="message message--inline">No results for “${esc(q)}”.</p>`;
   return `<div class="results">
@@ -368,14 +377,14 @@ export function about(index) {
     <h1>About HumTube</h1>
     <p>HumTube collects YouTube videos about the people on TIME’s list of the 100 most important people of the 20th century, published in 1998 and 1999. TIME named Albert Einstein Person of the Century, with Franklin D. Roosevelt and Mohandas Gandhi as runners-up. <a href="https://time.com/archive/6735625/time-100-persons-of-the-century/" target="_blank" rel="noopener noreferrer">TIME’s list</a></p>
     <h2>Which videos are included</h2>
+    <p>For each person, HumTube runs a normal YouTube search and keeps the results that have:</p>
     <ul>
       <li>${full(t.minViews)} or more views</li>
       <li>${full(t.minLikes)} or more likes (videos with hidden likes are left out)</li>
-      <li>From a channel with ${full(t.minSubscribers)} or more subscribers (hidden counts are left out)</li>
-      <li>Longer than ${t.minDurationSec} seconds</li>
-      <li>The person’s name is in the title, tags or the start of the description</li>
-      <li>No memes, parodies, fan edits or game videos</li>
+      <li>A channel with ${full(t.minSubscribers)} or more subscribers (hidden counts are left out)</li>
+      ${t.minDurationSec > 0 ? `<li>More than ${t.minDurationSec} seconds (no Shorts)</li>` : ''}
     </ul>
+    <p>Videos stay in the order YouTube ranked them.</p>
     <h2>The 100 people</h2>
     ${CATEGORIES.map((c) => `<h3>${esc(c.label)}</h3>
       <p>${PEOPLE.filter((p) => p.category === c.id).map((p) => `<a href="${href.person(p.id)}">${esc(p.name)}</a>`).join(', ')}</p>`).join('')}

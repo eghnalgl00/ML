@@ -1,55 +1,41 @@
-// Turns raw YouTube results into the HumTube catalog. Pure functions, plus one
+// Turns YouTube search results into the HumTube catalog. Pure functions, plus one
 // small async helper (`fetchPersonLive`) that the browser's live mode uses.
+//
+// Each person gets one YouTube search, sorted by YouTube's relevance ranking.
+// A video is listed if it passes the bar; it keeps its position in YouTube's
+// results (`ranks[personId]`), which is the default order on the site.
 //
 // Catalog shape (data/catalog.json):
 // {
 //   version, generatedAt, thresholds,
-//   people: { [personId]: { queries, searchedAt, candidates, accepted, rejected: {reason: n} } },
+//   people: { [personId]: { query, order, searchedAt, candidates, accepted, rejected: {reason: n} } },
 //   videos: [ { id, title, description, channelId, channelTitle, channelSubscribers,
 //               publishedAt, durationSec, views, likes, comments, embeddable,
-//               categoryId, topics: [...], personIds: [...], foundFor: [...] } ]
+//               categoryId, topics: [...], personIds: [...], ranks: {personId: n} } ]
 // }
 
-import { PEOPLE, searchesFor } from './people.js';
-import { DEFAULT_THRESHOLDS, makeMatcher, videoRejection, channelRejection } from './filters.js';
+import { PEOPLE, queryFor } from './people.js';
+import { DEFAULT_THRESHOLDS, videoRejection, channelRejection } from './filters.js';
 import { classify } from './topics.js';
 
-export const CATALOG_VERSION = 1;
-
-function groupBy(list, key) {
-  const m = new Map();
-  for (const item of list) {
-    const k = key(item);
-    if (!m.has(k)) m.set(k, []);
-    m.get(k).push(item);
-  }
-  return m;
-}
+export const CATALOG_VERSION = 2;
+export const SEARCH_ORDER = 'relevance'; // YouTube's default search ranking
 
 const latest = (dates) => dates.filter(Boolean).sort().at(-1) ?? null;
 
-/**
- * Channel IDs worth looking up: only channels of videos that already pass every
- * video-level check for the person they were found for (saves quota).
- */
-export function channelIdsToCheck({ people = PEOPLE, searches, videos, thresholds = DEFAULT_THRESHOLDS }) {
-  const byPerson = groupBy(searches, (s) => s.personId);
+/** Only channels of videos that already pass the video-level checks (saves quota). */
+export function channelIdsToCheck({ searches, videos, thresholds = DEFAULT_THRESHOLDS }) {
   const ids = new Set();
-  for (const p of people) {
-    const list = byPerson.get(p.id);
-    if (!list) continue;
-    const matcher = makeMatcher(p);
-    for (const id of new Set(list.flatMap((s) => s.videoIds))) {
-      const v = videos[id];
-      if (v && !videoRejection(v, matcher, thresholds)) ids.add(v.channelId);
-    }
+  for (const id of new Set(searches.flatMap((s) => s.videoIds))) {
+    const v = videos[id];
+    if (v && !videoRejection(v, thresholds)) ids.add(v.channelId);
   }
   return [...ids];
 }
 
 /**
  * @param {object} args
- * @param {Array}  args.searches  [{ personId, query, order, fetchedAt, videoIds }]
+ * @param {Array}  args.searches  [{ personId, query, order, fetchedAt, videoIds }] (videoIds in YouTube's order)
  * @param {object} args.videos    { [videoId]: normalizedVideo }
  * @param {object} args.channels  { [channelId]: normalizedChannel }
  */
@@ -61,47 +47,41 @@ export function buildCatalog({
   thresholds = DEFAULT_THRESHOLDS,
   generatedAt = new Date().toISOString(),
 }) {
-  const matchers = new Map(people.map((p) => [p.id, makeMatcher(p)]));
-  const byPerson = groupBy(searches, (s) => s.personId);
-  const accepted = new Map(); // videoId -> Set(personId it was found for)
+  const accepted = new Map(); // videoId -> { personIds: [], ranks: {} }
   const report = {};
 
   for (const p of people) {
-    const list = byPerson.get(p.id);
-    if (!list) continue;
-    const ids = [...new Set(list.flatMap((s) => s.videoIds))];
+    const search = searches.find((s) => s.personId === p.id);
+    if (!search) continue;
     const rejected = {};
     let ok = 0;
-    for (const id of ids) {
+    search.videoIds.forEach((id, position) => {
       const v = videos[id];
-      const reason = !v
-        ? 'missing'
-        : videoRejection(v, matchers.get(p.id), thresholds) ?? channelRejection(channels[v.channelId], thresholds);
+      const reason = !v ? 'missing' : videoRejection(v, thresholds) ?? channelRejection(channels[v.channelId], thresholds);
       if (reason) {
         rejected[reason] = (rejected[reason] ?? 0) + 1;
-        continue;
+        return;
       }
       ok += 1;
-      if (!accepted.has(id)) accepted.set(id, new Set());
-      accepted.get(id).add(p.id);
-    }
+      if (!accepted.has(id)) accepted.set(id, { personIds: [], ranks: {} });
+      const entry = accepted.get(id);
+      entry.personIds.push(p.id);
+      entry.ranks[p.id] = position + 1;
+    });
     report[p.id] = {
-      queries: [...new Set(list.map((s) => s.query))],
-      searchedAt: latest(list.map((s) => s.fetchedAt)),
-      candidates: ids.length,
+      query: search.query,
+      order: search.order,
+      searchedAt: latest([search.fetchedAt]),
+      candidates: search.videoIds.length,
       accepted: ok,
       rejected,
     };
   }
 
   const out = [];
-  for (const [id, found] of accepted) {
+  for (const [id, { personIds, ranks }] of accepted) {
     const v = videos[id];
     const ch = channels[v.channelId];
-    const personIds = [...found];
-    for (const p of people) {
-      if (!found.has(p.id) && matchers.get(p.id).mentions(v)) personIds.push(p.id);
-    }
     out.push({
       id,
       title: v.title,
@@ -118,7 +98,7 @@ export function buildCatalog({
       categoryId: v.categoryId,
       topics: classify({ title: v.title, channelTitle: ch?.title || v.channelTitle, categoryId: v.categoryId }),
       personIds,
-      foundFor: [...found],
+      ranks,
     });
   }
   out.sort((a, b) => b.views - a.views || a.id.localeCompare(b.id));
@@ -141,16 +121,14 @@ export function mergeCatalogs(base, ...fragments) {
     Object.assign(people, cat.people ?? {});
     for (const v of cat.videos ?? []) {
       const prev = videos.get(v.id);
-      if (!prev) {
-        videos.set(v.id, { ...v });
-      } else {
-        videos.set(v.id, {
+      videos.set(v.id, prev
+        ? {
           ...prev,
           ...v,
           personIds: [...new Set([...prev.personIds, ...v.personIds])],
-          foundFor: [...new Set([...(prev.foundFor ?? []), ...(v.foundFor ?? [])])],
-        });
-      }
+          ranks: { ...(prev.ranks ?? {}), ...(v.ranks ?? {}) },
+        }
+        : { ...v });
     }
   }
   return {
@@ -164,30 +142,23 @@ export function mergeCatalogs(base, ...fragments) {
 
 /**
  * Live mode: search YouTube for one person right now and return a catalog
- * fragment. Costs ~100 quota units per query, plus a few for stats.
+ * fragment. Costs ~100 quota units for the search, plus a few for stats.
  */
-export async function fetchPersonLive(person, {
-  client,
-  thresholds = DEFAULT_THRESHOLDS,
-  maxQueries = 2,
-  relevanceLanguage = 'en',
-}) {
-  const searches = [];
-  for (const { query, order } of searchesFor(person).slice(0, maxQueries)) {
-    const r = await client.search(query, { order, relevanceLanguage });
-    searches.push({
-      personId: person.id,
-      query,
-      order,
-      fetchedAt: new Date().toISOString(),
-      videoIds: r.items.map((i) => i.videoId),
-    });
-  }
-  const ids = [...new Set(searches.flatMap((s) => s.videoIds))];
+export async function fetchPersonLive(person, { client, thresholds = DEFAULT_THRESHOLDS, relevanceLanguage = 'en' }) {
+  const query = queryFor(person);
+  const r = await client.search(query, { order: SEARCH_ORDER, relevanceLanguage });
+  const searches = [{
+    personId: person.id,
+    query,
+    order: SEARCH_ORDER,
+    fetchedAt: new Date().toISOString(),
+    videoIds: r.items.map((i) => i.videoId),
+  }];
+  const ids = searches[0].videoIds;
   const videos = Object.fromEntries((ids.length ? await client.videos(ids) : []).map((v) => [v.id, v]));
-  const channelIds = channelIdsToCheck({ people: [person], searches, videos, thresholds });
+  const channelIds = channelIdsToCheck({ searches, videos, thresholds });
   const channels = Object.fromEntries(
     (channelIds.length ? await client.channels(channelIds) : []).map((c) => [c.id, c]),
   );
-  return buildCatalog({ people: PEOPLE, searches, videos, channels, thresholds });
+  return buildCatalog({ people: [person], searches, videos, channels, thresholds });
 }

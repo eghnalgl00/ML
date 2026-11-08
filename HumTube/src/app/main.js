@@ -131,7 +131,7 @@ function setupPager() {
 function setParam(key, value) {
   const r = route();
   const params = r.params;
-  if (value == null || value === '' || (key === 'sort' && value === 'views')) params.delete(key);
+  if (value == null || value === '' || (key === 'sort' && value === 'relevance')) params.delete(key);
   else params.set(key, value);
   const s = params.toString();
   location.hash = `${r.path}${s ? `?${s}` : ''}`;

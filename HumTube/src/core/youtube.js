@@ -125,7 +125,7 @@ export function createClient({ apiKey, fetchImpl = globalThis.fetch, baseUrl = A
 
   return {
     /** One search.list page (100 units). */
-    async search(q, { maxResults = 50, order = 'viewCount', relevanceLanguage = 'en', pageToken } = {}) {
+    async search(q, { maxResults = 50, order = 'relevance', relevanceLanguage = 'en', pageToken } = {}) {
       const body = await call('search', {
         part: 'snippet',
         type: 'video',
