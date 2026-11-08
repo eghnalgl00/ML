@@ -24,9 +24,9 @@ The rules live in [`src/core/filters.js`](src/core/filters.js). The catalog
 builder and the in-browser live mode share that file, so both always decide the
 same way.
 
-Every video is also tagged with topics: **War & Conflict, Documentary, Movies &
-Drama, Speeches, Interviews, Biography, Archival Footage, Explainers & Lessons,
-Music & Performance, Sports** ([`src/core/topics.js`](src/core/topics.js)).
+Every video is also tagged with topics, shown as filter chips: **War,
+Documentaries, Films, Speeches, Interviews, Biographies, Archive footage,
+Explainers, Music, Sports** ([`src/core/topics.js`](src/core/topics.js)).
 
 ## The 100 people
 
@@ -83,8 +83,8 @@ why (for example “31 under the view minimum”).
 
 ### 2. Live mode (no build step)
 
-Click the ⚙ button, paste your API key, open any person and press **Find videos
-on YouTube**. The browser runs the same search and filters. Results are kept in
+Click the ⚙ button, paste your API key, open any person and press **Load
+videos**. The browser runs the same search and filters. Results are kept in
 that browser for 7 days. The key stays in the browser’s local storage and is
 sent only to `googleapis.com`. Restrict it to the YouTube Data API and your site’s
 address in Cloud Console.
@@ -118,9 +118,12 @@ HumTube/
 └── test/                                 node:test suites + a mock YouTube API
 ```
 
-Pages: home (Person of the Century, topics, most watched, all five categories),
-category, person (topic filters, sort, search report), topic, watch (embedded
-player via youtube-nocookie.com, stats, related), search, watch later, about.
+The layout follows familiar video-site conventions: a top bar with search, a
+collapsible sidebar (Home, Watch later, the five TIME categories), a chip bar to
+filter by topic, and a video grid that loads more as you scroll. Each person has a
+channel-style page with their videos. The watch page has the embedded player
+(youtube-nocookie.com), the uploading channel, views, likes, the people in the
+video and an up-next list. Search, Watch later and About pages are included.
 
 ## Tests
 

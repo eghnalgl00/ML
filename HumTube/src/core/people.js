@@ -23,35 +23,30 @@ export const CATEGORIES = [
     label: 'Leaders & Revolutionaries',
     short: 'Leaders',
     issue: 'April 13, 1998',
-    blurb: 'Presidents, dictators, dissidents and reformers who redrew the map of the 20th century.',
   },
   {
     id: 'artists',
     label: 'Artists & Entertainers',
     short: 'Artists',
     issue: 'June 8, 1998',
-    blurb: 'The musicians, writers, filmmakers and designers who shaped how the century looked and sounded.',
   },
   {
     id: 'builders',
     label: 'Builders & Titans',
     short: 'Builders',
     issue: 'December 7, 1998',
-    blurb: 'Industrialists, inventors of new businesses and empire-builders of the modern economy.',
   },
   {
     id: 'scientists',
     label: 'Scientists & Thinkers',
     short: 'Scientists',
     issue: 'March 29, 1999',
-    blurb: 'The minds behind relativity, computing, flight, DNA, vaccines and the way we think about thinking.',
   },
   {
     id: 'heroes',
     label: 'Heroes & Icons',
     short: 'Heroes',
     issue: 'June 14, 1999',
-    blurb: 'Athletes, activists, explorers and symbols whose lives became the century’s stories.',
   },
 ];
 

@@ -3,62 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>HumTube — the 20th century’s 100 most important people, on video</title>
-  <meta name="description" content="Learn history through the most-watched YouTube documentaries, war films, speeches and interviews about TIME's 100 Persons of the Century.">
+  <title>HumTube</title>
+  <meta name="description" content="Documentaries, speeches, films and interviews on YouTube about TIME's 100 Persons of the Century.">
   <meta name="color-scheme" content="light dark">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="src/app/main.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="topbar">
-    <button id="menu-btn" class="icon-btn menu-btn" type="button" aria-label="Browse menu" aria-controls="sidebar" aria-expanded="false">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-    <a class="brand" href="#/" aria-label="HumTube home">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8"/><path d="M12 9.5v13l11-6.5z"/></svg>
-      <span class="brand-word">Hum<span>Tube</span></span>
-    </a>
-    <form id="search-form" class="search" role="search">
-      <label class="visually-hidden" for="search-input">Search HumTube</label>
-      <input id="search-input" type="search" placeholder="Search people, wars, films…" autocomplete="off" enterkeyhint="search">
-      <button type="submit" aria-label="Search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  <header class="masthead">
+    <div class="masthead-start">
+      <button id="menu-btn" class="icon-btn" type="button" aria-label="Menu" aria-controls="sidebar" aria-expanded="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="i"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></svg>
       </button>
-    </form>
-    <button id="settings-btn" class="icon-btn" type="button" aria-label="Settings and live mode">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-    </button>
+      <a class="logo" href="#/" aria-label="HumTube home">
+        <svg viewBox="0 0 28 28" aria-hidden="true" class="logo-mark"><circle cx="14" cy="14" r="13"/><path d="M11 8.8v10.4l8.6-5.2z"/></svg>
+        <span class="logo-word">HumTube</span>
+      </a>
+    </div>
+    <div class="masthead-center">
+      <button id="search-back" class="icon-btn search-back" type="button" aria-label="Close search">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="i"><path d="M19.5 12h-15M10.5 6l-6 6 6 6"/></svg>
+      </button>
+      <form id="search-form" class="search" role="search">
+        <label class="visually-hidden" for="search-input">Search</label>
+        <input id="search-input" type="search" placeholder="Search" autocomplete="off" enterkeyhint="search">
+        <button type="submit" class="search-btn" aria-label="Search">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="i"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+        </button>
+      </form>
+    </div>
+    <div class="masthead-end">
+      <button id="search-open" class="icon-btn search-open" type="button" aria-label="Search">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="i"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+      </button>
+      <button id="settings-btn" class="icon-btn" type="button" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="i"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
   </header>
 
-  <div class="layout">
-    <nav id="sidebar" class="sidebar" aria-label="Browse"></nav>
+  <div class="page">
+    <nav id="sidebar" class="guide" aria-label="Main"></nav>
     <div id="scrim" class="scrim" aria-hidden="true"></div>
-    <main id="main" class="main" tabindex="-1">
-      <p class="loading">Loading HumTube…</p>
-    </main>
+    <main id="main" class="content" tabindex="-1"></main>
   </div>
 
   <dialog id="settings" class="dialog" aria-labelledby="settings-title">
     <form method="dialog" class="dialog-body">
-      <h2 id="settings-title">Live mode</h2>
-      <p>Paste a <b>YouTube Data API v3</b> key to search YouTube from any person’s page right here in your browser. Results pass the same quality bar as the catalog and are kept in this browser for 7 days.</p>
-      <label for="api-key">API key</label>
-      <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
-      <p id="key-status" class="dialog-status" aria-live="polite"></p>
-      <ul class="dialog-notes">
-        <li>The key stays in this browser’s storage and is sent only to <code>googleapis.com</code>.</li>
-        <li>Each search costs about 100 of the 10,000 free daily quota units.</li>
-        <li>In Google Cloud Console, restrict the key to the YouTube Data API and to your site’s address.</li>
-      </ul>
+      <h2 id="settings-title">Settings</h2>
+      <label for="api-key">YouTube Data API key</label>
+      <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key">
+      <p class="dialog-help">With a key, each person’s page gets a “Load videos” button that searches YouTube from this browser. The key is stored only in this browser. Each search uses about 100 of your 10,000 daily quota units.</p>
+      <p id="key-status" class="dialog-help" aria-live="polite"></p>
       <div class="dialog-actions">
-        <button type="button" class="btn btn--ghost" data-dialog="clear-live">Clear live results</button>
-        <button type="button" class="btn btn--ghost" data-dialog="forget">Forget key</button>
+        <button type="button" class="text-btn" data-dialog="forget">Remove key</button>
+        <button type="button" class="text-btn" data-dialog="clear-live">Clear loaded videos</button>
         <span class="spacer"></span>
-        <button type="button" class="btn" data-dialog="close">Close</button>
-        <button type="button" class="btn btn--primary" data-dialog="save">Save key</button>
+        <button type="button" class="text-btn" data-dialog="close">Cancel</button>
+        <button type="button" class="text-btn text-btn--primary" data-dialog="save">Save</button>
       </div>
     </form>
   </dialog>

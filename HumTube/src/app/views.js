@@ -4,9 +4,8 @@ import {
   PEOPLE, PEOPLE_BY_ID, CATEGORIES, CATEGORY_BY_ID, PERSON_OF_THE_CENTURY, monogram, queriesFor,
 } from '../core/people.js';
 import { ALL_TOPICS, TOPIC_BY_ID } from '../core/topics.js';
-import { REJECTION_LABELS } from '../core/filters.js';
 import { fold } from '../core/text.js';
-import { esc, short, full, duration, year, date, ago, plural } from './format.js';
+import { esc, short, full, duration, date, timeAgo, plural } from './format.js';
 
 // ── Links ───────────────────────────────────────────────────────────────
 const qs = (params) => {
@@ -14,10 +13,9 @@ const qs = (params) => {
   return s ? `?${s}` : '';
 };
 export const href = {
-  home: () => '#/',
+  home: (params = {}) => `#/${qs(params)}`,
   category: (id) => `#/c/${id}`,
   person: (id, params = {}) => `#/p/${id}${qs(params)}`,
-  topic: (id, params = {}) => `#/t/${id}${qs(params)}`,
   watch: (id) => `#/w/${id}`,
   search: (q) => `#/search/${encodeURIComponent(q)}`,
   saved: () => '#/saved',
@@ -28,194 +26,194 @@ const thumb = (id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const thumbHq = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
 // ── Sorting ─────────────────────────────────────────────────────────────
-const ratio = (v) => (v.likes ?? 0) / Math.max(1, v.views);
+const by = (key) => (a, b) => String(b[key] ?? '').localeCompare(String(a[key] ?? ''));
 export const SORTS = [
-  { id: 'views', label: 'Most viewed', fn: (a, b) => b.views - a.views },
+  { id: 'views', label: 'Popular', fn: (a, b) => b.views - a.views },
+  { id: 'newest', label: 'Latest', fn: by('publishedAt') },
+  { id: 'oldest', label: 'Oldest', fn: (a, b) => by('publishedAt')(b, a) },
   { id: 'likes', label: 'Most liked', fn: (a, b) => (b.likes ?? 0) - (a.likes ?? 0) },
-  { id: 'loved', label: 'Best like ratio', fn: (a, b) => ratio(b) - ratio(a) },
-  { id: 'longest', label: 'Longest first', fn: (a, b) => (b.durationSec ?? 0) - (a.durationSec ?? 0) },
-  { id: 'newest', label: 'Newest', fn: (a, b) => String(b.publishedAt ?? '').localeCompare(String(a.publishedAt ?? '')) },
 ];
 const sortBy = (list, id) => [...list].sort((SORTS.find((s) => s.id === id) ?? SORTS[0]).fn);
 
-// ── Small parts ─────────────────────────────────────────────────────────
-const icon = {
-  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
-  ext: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
-  bookmarkOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
-  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+// ── Icons (24px outline) ────────────────────────────────────────────────
+const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" aria-hidden="true" class="i"${extra}>${d}</svg>`;
+export const icons = {
+  home: svg('<path d="M4 10.5 12 4l8 6.5V20h-5.5v-6h-5v6H4z"/>'),
+  later: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  info: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.4"/>'),
+  leaders: svg('<path d="M5.5 21V4M5.5 4.5h11.5l-2.2 4 2.2 4H5.5"/>'),
+  artists: svg('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.1 0 1.7-.7 1.7-1.6 0-.5-.2-.8-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6h2.1a4.1 4.1 0 0 0 4.1-4.1C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.6" cy="11.5" r=".9"/><circle cx="10" cy="7.6" r=".9"/><circle cx="14.5" cy="7.6" r=".9"/>'),
+  builders: svg('<path d="M3.5 20.5h17M6 20.5V8l6-4 6 4v12.5M9.5 10.5h1M13.5 10.5h1M9.5 14h1M13.5 14h1M10.5 20.5v-3h3v3"/>'),
+  scientists: svg('<path d="M9 3.5h6M10.3 3.5v5.4L5.2 18.1a1.6 1.6 0 0 0 1.4 2.4h10.8a1.6 1.6 0 0 0 1.4-2.4L13.7 8.9V3.5M7.4 14.5h9.2"/>'),
+  heroes: svg('<path d="m12 3.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/>'),
+  save: svg('<path d="M6.5 3.5h11v17l-5.5-3.6-5.5 3.6z"/>'),
+  saved: svg('<path d="M6.5 3.5h11v17l-5.5-3.6-5.5 3.6z" fill="currentColor"/>'),
+  ext: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
+  refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/>'),
+  play: svg('<path d="M8.5 6v12l9.5-6z" fill="currentColor"/>'),
 };
 
+// ── Shared parts ────────────────────────────────────────────────────────
 export function avatar(person, size = 'md') {
   return `<span class="avatar avatar--${size} cat-${person.category}" aria-hidden="true">${esc(monogram(person))}</span>`;
 }
 
-function topicTag(id) {
-  const t = TOPIC_BY_ID.get(id);
-  return t ? `<span class="tag">${esc(t.label)}</span>` : '';
+const leadPerson = (v) => PEOPLE_BY_ID.get(v.foundFor?.[0]) ?? PEOPLE_BY_ID.get(v.personIds[0]);
+const metaLine = (v) => `${short(v.views)} views${v.publishedAt ? ` · ${timeAgo(v.publishedAt)}` : ''}`;
+const videoCount = (index, id) => index.byPerson.get(id)?.length ?? 0;
+
+function thumbLink(v, cls = '') {
+  return `<a class="thumb ${cls}" href="${href.watch(v.id)}" tabindex="-1" aria-hidden="true"><img src="${thumb(v.id)}" alt="" loading="lazy" decoding="async" width="320" height="180">${v.durationSec ? `<span class="dur">${duration(v.durationSec)}</span>` : ''}</a>`;
 }
 
-export function barNote(t) {
-  return `<p class="bar-note">${icon.check}<span>Every video: <b>${short(t.minViews)}+ views</b> · <b>${short(t.minLikes)}+ likes</b> · from channels with <b>${short(t.minSubscribers)}+ subscribers</b></span></p>`;
+/** Grid card: thumbnail, then avatar + title + channel + views · age. */
+export function videoCard(v) {
+  const p = leadPerson(v);
+  return `<div class="vcard">
+    ${thumbLink(v)}
+    <div class="vcard-meta">
+      ${p ? `<a class="vcard-avatar" href="${href.person(p.id)}" title="${esc(p.name)}">${avatar(p)}</a>` : ''}
+      <div class="vtext">
+        <h3 class="vtitle"><a href="${href.watch(v.id)}" title="${esc(v.title)}">${esc(v.title)}</a></h3>
+        <p class="vline">${esc(v.channelTitle)}</p>
+        <p class="vline">${metaLine(v)}</p>
+      </div>
+    </div>
+  </div>`;
 }
 
-export function personCard(person, count) {
-  return `<a class="person-card" href="${href.person(person.id)}">
-    ${avatar(person)}
-    <span class="pc-text">
-      <span class="pc-name">${esc(person.name)}</span>
-      <span class="pc-years">${esc(person.years)}</span>
-      <span class="pc-blurb">${esc(person.blurb)}</span>
-      <span class="pc-count ${count ? '' : 'is-zero'}">${count ? plural(count, 'video') : 'No videos yet'}</span>
+/** Compact row for the watch page's side column. */
+function videoRow(v) {
+  return `<div class="vrow">
+    ${thumbLink(v, 'thumb--sm')}
+    <div class="vtext">
+      <h3 class="vtitle"><a href="${href.watch(v.id)}" title="${esc(v.title)}">${esc(v.title)}</a></h3>
+      <p class="vline">${esc(v.channelTitle)}</p>
+      <p class="vline">${metaLine(v)}</p>
+    </div>
+  </div>`;
+}
+
+/** Wide row for search results and Watch later. */
+function videoResult(v) {
+  const p = leadPerson(v);
+  return `<div class="vresult">
+    ${thumbLink(v, 'thumb--lg')}
+    <div class="vtext">
+      <h3 class="vtitle vtitle--lg"><a href="${href.watch(v.id)}">${esc(v.title)}</a></h3>
+      <p class="vline">${metaLine(v)}</p>
+      <p class="vline vline--channel">${p ? `<a href="${href.person(p.id)}">${avatar(p, 'xs')}</a>` : ''}${esc(v.channelTitle)}</p>
+      ${v.description ? `<p class="vline vdesc">${esc(v.description)}</p>` : ''}
+    </div>
+  </div>`;
+}
+
+function personTile(index, p) {
+  const n = videoCount(index, p.id);
+  return `<a class="ptile" href="${href.person(p.id)}">
+    ${avatar(p, 'lg')}
+    <span class="ptile-name">${esc(p.name)}</span>
+    <span class="ptile-meta">${n ? plural(n, 'video') : 'No videos'}</span>
+  </a>`;
+}
+
+function personResult(index, p) {
+  const c = CATEGORY_BY_ID.get(p.category);
+  return `<a class="presult" href="${href.person(p.id)}">
+    <span class="presult-avatar">${avatar(p, 'xl')}</span>
+    <span class="vtext">
+      <span class="vtitle vtitle--lg">${esc(p.name)}</span>
+      <span class="vline">${esc(c.label)} · ${esc(p.years)} · ${plural(videoCount(index, p.id), 'video')}</span>
+      <span class="vline">${esc(p.blurb)}</span>
     </span>
   </a>`;
 }
 
-export function videoCard(v, { showPerson = false, compact = false } = {}) {
-  const people = v.personIds.map((id) => PEOPLE_BY_ID.get(id)).filter(Boolean);
-  const kicker = showPerson && people.length
-    ? `<span class="vc-kicker">${esc(people.slice(0, 2).map((p) => p.name).join(' · '))}${people.length > 2 ? ` +${people.length - 2}` : ''}</span>`
-    : '';
-  return `<a class="video-card${compact ? ' video-card--compact' : ''}" href="${href.watch(v.id)}">
-    <span class="thumb"><img src="${thumb(v.id)}" alt="" loading="lazy" decoding="async" width="320" height="180">${v.durationSec ? `<span class="dur">${duration(v.durationSec)}</span>` : ''}</span>
-    <span class="vc-body">
-      ${kicker}
-      <span class="vc-title">${esc(v.title)}</span>
-      <span class="vc-channel">${esc(v.channelTitle)}${v.channelSubscribers ? ` · ${short(v.channelSubscribers)} subs` : ''}</span>
-      <span class="vc-stats">${short(v.views)} views · ${short(v.likes)} likes${v.publishedAt ? ` · ${year(v.publishedAt)}` : ''}</span>
-      ${compact ? '' : `<span class="vc-tags">${v.topics.slice(0, 3).map(topicTag).join('')}</span>`}
-    </span>
-  </a>`;
+// Long grids render in pages; main.js appends the rest as you scroll.
+export const PAGE = 48;
+export const pager = { queue: [], render: videoCard };
+
+function pagedGrid(list, render = videoCard, cls = 'vgrid') {
+  pager.queue = list.slice(PAGE);
+  pager.render = render;
+  return `<div class="${cls}" data-pager>${list.slice(0, PAGE).map(render).join('')}</div>${pager.queue.length ? '<div class="pager-sentinel"></div>' : ''}`;
 }
 
-function videoGrid(list, opts) {
-  return `<div class="video-grid">${list.map((v) => videoCard(v, opts)).join('')}</div>`;
-}
-
-function chips(items, active) {
-  return `<div class="chips" role="list">${items
-    .map((i) => `<a role="listitem" class="chip${i.id === active ? ' is-active' : ''}" href="${i.href}"${i.id === active ? ' aria-current="true"' : ''}>${esc(i.label)}${i.count != null ? ` <span class="chip-count">${i.count}</span>` : ''}</a>`)
-    .join('')}</div>`;
+function chipBar(items, active, { sticky = false, extra = '' } = {}) {
+  return `<div class="chipbar${sticky ? ' chipbar--sticky' : ''}">
+    <div class="chips">${items.map((i) => `<a class="chip${i.id === active ? ' is-active' : ''}" href="${i.href}"${i.id === active ? ' aria-current="true"' : ''}>${esc(i.label)}</a>`).join('')}</div>
+    ${extra}
+  </div>`;
 }
 
 function sortSelect(active) {
-  return `<label class="sort">Sort
+  return `<label class="sort"><span class="visually-hidden">Sort by</span>
     <select data-action="sort">${SORTS.map((s) => `<option value="${s.id}"${s.id === active ? ' selected' : ''}>${s.label}</option>`).join('')}</select>
   </label>`;
 }
 
-function topicCounts(list) {
-  const m = new Map();
-  for (const v of list) for (const t of v.topics) m.set(t, (m.get(t) ?? 0) + 1);
-  return m;
+function topicsIn(list) {
+  const counts = new Map();
+  for (const v of list) for (const t of v.topics) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return ALL_TOPICS.filter((t) => counts.get(t.id));
 }
-
-function emptyCatalog(ctx) {
-  return `<section class="notice">
-    <h2>The video shelf is still empty</h2>
-    <p>HumTube’s catalog is built from the YouTube Data API, and it hasn’t been run yet. Two ways to fill it:</p>
-    <ol>
-      <li><b>Build the full catalog</b> (recommended): <code>YOUTUBE_API_KEY=… npm run build:catalog</code> — searches all 100 people, applies the quality bar and writes <code>data/catalog.json</code>.</li>
-      <li><b>Live mode in this browser</b>: ${ctx.hasKey ? 'your API key is saved — open any person and press <i>Find videos on YouTube</i>.' : '<button type="button" class="link-btn" data-action="open-settings">add your API key</button>, then open any person and press <i>Find videos on YouTube</i>.'}</li>
-    </ol>
-  </section>`;
-}
-
-const pageHead = (title, sub = '') => `<header class="page-head"><h1>${title}</h1>${sub ? `<p class="lede">${sub}</p>` : ''}</header>`;
 
 // ── Sidebar ─────────────────────────────────────────────────────────────
 export function sidebar(index, route) {
   const [view, arg] = route.parts;
-  const is = (v, a) => view === v && (a == null || arg === a);
-  const countFor = (catId) => PEOPLE.filter((p) => p.category === catId).reduce((n, p) => n + (index.byPerson.get(p.id)?.length ? 1 : 0), 0);
-  const link = (h, label, active, extra = '') => `<a class="nav-link${active ? ' is-active' : ''}" href="${h}"${active ? ' aria-current="page"' : ''}>${label}${extra}</a>`;
+  const item = (h, icon, label, active) =>
+    `<a class="guide-item${active ? ' is-active' : ''}" href="${h}"${active ? ' aria-current="page"' : ''}>${icon}<span>${esc(label)}</span></a>`;
   return `
-    <div class="nav-group">
-      ${link(href.home(), 'Home', !view)}
-      ${link(href.saved(), 'Watch later', is('saved'))}
-      ${link(href.about(), 'About HumTube', is('about'))}
+    <div class="guide-section">
+      ${item(href.home(), icons.home, 'Home', !view || view === 't')}
+      ${item(href.saved(), icons.later, 'Watch later', view === 'saved')}
     </div>
-    <div class="nav-group">
-      <h2 class="nav-title">TIME 100 categories</h2>
-      ${CATEGORIES.map((c) => link(href.category(c.id), `<span class="dot cat-${c.id}"></span>${esc(c.label)}`, is('c', c.id), `<span class="nav-count" title="People with videos">${countFor(c.id)}/20</span>`)).join('')}
+    <div class="guide-section">
+      <h2 class="guide-title">Categories</h2>
+      ${CATEGORIES.map((c) => item(href.category(c.id), icons[c.id], c.short, view === 'c' && arg === c.id)).join('')}
     </div>
-    <div class="nav-group">
-      <h2 class="nav-title">Topics</h2>
-      ${ALL_TOPICS.map((t) => link(href.topic(t.id), `<span class="nav-icon" aria-hidden="true">${t.icon}</span>${esc(t.label)}`, is('t', t.id), `<span class="nav-count">${index.byTopic.get(t.id)?.length ?? 0}</span>`)).join('')}
+    <div class="guide-section">
+      ${item(href.about(), icons.info, 'About', view === 'about')}
     </div>
-    <p class="nav-foot">${index.generatedAt ? `Catalog built ${esc(date(index.generatedAt))}` : 'Catalog not built yet'} · ${plural(index.list.length, 'video')}</p>`;
+    <p class="guide-foot">Based on TIME’s 100 Persons of the Century. Not affiliated with TIME or YouTube.</p>`;
 }
 
-// ── Home ────────────────────────────────────────────────────────────────
-export function home(index, ctx) {
-  const einstein = PEOPLE_BY_ID.get(PERSON_OF_THE_CENTURY.id);
-  const [r1, r2] = PERSON_OF_THE_CENTURY.runnersUp.map((id) => PEOPLE_BY_ID.get(id));
-  const hasVideos = index.list.length > 0;
-  const top = index.list.slice(0, 8);
+// ── Home (and topic pages, which are home with a chip selected) ─────────
+export function home(index, topicId, ctx) {
+  if (!index.list.length) return emptyHome(index, ctx);
+  const topic = TOPIC_BY_ID.has(topicId) ? topicId : 'all';
+  const list = topic === 'all' ? index.list : index.byTopic.get(topic) ?? [];
+  const items = [
+    { id: 'all', label: 'All', href: href.home() },
+    ...topicsIn(index.list).map((t) => ({ id: t.id, label: t.label, href: href.home({ topic: t.id }) })),
+  ];
+  return `${chipBar(items, topic, { sticky: true })}${pagedGrid(list)}`;
+}
 
-  const hero = `<section class="hero">
-    <div class="hero-text">
-      <p class="eyebrow">TIME’s Person of the Century · ${esc(PERSON_OF_THE_CENTURY.issue)}</p>
-      <h1>Learn the 20th century through the 100 people who shaped it.</h1>
-      <p class="lede">Documentaries, war history, speeches, films and interviews about TIME’s 100 most important people of the century, drawn from YouTube’s most-watched and most-liked videos.</p>
-      <div class="hero-actions">
-        <a class="btn btn--primary" href="${href.person(einstein.id)}">${icon.play}Start with ${esc(einstein.name)}</a>
-        <a class="btn" href="${href.person(r1.id)}">${esc(r1.name)}</a>
-        <a class="btn" href="${href.person(r2.id)}">${esc(r2.name)}</a>
-      </div>
-      <p class="hero-foot">Einstein was named Person of the Century; Roosevelt and Gandhi were the runners-up.</p>
-    </div>
-    <a class="hero-card" href="${href.person(einstein.id)}" aria-label="${esc(einstein.name)}">
-      ${avatar(einstein, 'xl')}
-      <span class="hero-card-name">${esc(einstein.name)}</span>
-      <span class="hero-card-years">${esc(einstein.years)}</span>
-      <span class="hero-card-count">${plural(index.byPerson.get(einstein.id)?.length ?? 0, 'video')}</span>
-    </a>
-  </section>`;
-
-  const topics = `<section class="section">
-    <div class="section-head"><h2>Browse by topic</h2></div>
-    <div class="topic-tiles">${ALL_TOPICS.map((t) => {
-      const n = index.byTopic.get(t.id)?.length ?? 0;
-      return `<a class="topic-tile${n ? '' : ' is-empty'}" href="${href.topic(t.id)}"><span class="tt-icon" aria-hidden="true">${t.icon}</span><span class="tt-label">${esc(t.label)}</span><span class="tt-count">${plural(n, 'video')}</span></a>`;
-    }).join('')}</div>
-  </section>`;
-
-  const mostWatched = hasVideos ? `<section class="section">
-    <div class="section-head"><h2>Most watched</h2><a class="see-all" href="${href.topic('all')}">See all ${plural(index.list.length, 'video')}</a></div>
-    ${videoGrid(top, { showPerson: true })}
-  </section>` : '';
-
-  const rows = CATEGORIES.map((c) => {
-    const people = PEOPLE.filter((p) => p.category === c.id);
-    return `<section class="section">
-      <div class="section-head"><h2><span class="dot cat-${c.id}"></span>${esc(c.label)}</h2><a class="see-all" href="${href.category(c.id)}">All 20</a></div>
-      <div class="scroller">${people.map((p) => personCard(p, index.byPerson.get(p.id)?.length ?? 0)).join('')}</div>
-    </section>`;
-  }).join('');
-
-  return `${hero}${barNote(index.thresholds)}${hasVideos ? '' : emptyCatalog(ctx)}${mostWatched}${topics}${rows}`;
+function emptyHome(index, ctx) {
+  return `<section class="message">
+      <h1>No videos yet</h1>
+      <p>Videos are added by running the catalog builder with a YouTube Data API key: <code>npm run build:catalog</code>.
+      ${ctx.hasKey ? 'Your key is saved, so you can also open a person below and load their videos.' : 'You can also <button type="button" class="link" data-action="open-settings">add a key in Settings</button> and load videos one person at a time.'}</p>
+    </section>
+    ${CATEGORIES.map((c) => `<section class="shelf">
+      <h2 class="shelf-title"><a href="${href.category(c.id)}">${esc(c.label)}</a></h2>
+      <div class="ptile-row">${PEOPLE.filter((p) => p.category === c.id).map((p) => personTile(index, p)).join('')}</div>
+    </section>`).join('')}`;
 }
 
 // ── Category ────────────────────────────────────────────────────────────
 export function category(index, catId) {
   const c = CATEGORY_BY_ID.get(catId);
   if (!c) return notFound();
-  const people = PEOPLE.filter((p) => p.category === c.id);
-  const ids = new Set(people.map((p) => p.id));
-  const vids = index.list.filter((v) => v.personIds.some((id) => ids.has(id)));
-  return `<header class="page-head page-head--cat cat-${c.id}">
-      <p class="eyebrow">TIME 100 · issue of ${esc(c.issue)}</p>
+  return `<header class="page-title">
       <h1>${esc(c.label)}</h1>
-      <p class="lede">${esc(c.blurb)}</p>
+      <p class="vline">20 people · TIME, ${esc(c.issue)}</p>
     </header>
-    <div class="person-grid">${people.map((p) => personCard(p, index.byPerson.get(p.id)?.length ?? 0)).join('')}</div>
-    ${vids.length ? `<section class="section"><div class="section-head"><h2>Most watched in ${esc(c.short)}</h2></div>${videoGrid(vids.slice(0, 24), { showPerson: true })}</section>` : ''}`;
+    <div class="ptile-grid">${PEOPLE.filter((p) => p.category === c.id).map((p) => personTile(index, p)).join('')}</div>`;
 }
 
-// ── Person ──────────────────────────────────────────────────────────────
+// ── Person (laid out like a channel page) ───────────────────────────────
 export function person(index, personId, params, ctx) {
   const p = PEOPLE_BY_ID.get(personId);
   if (!p) return notFound();
@@ -223,130 +221,93 @@ export function person(index, personId, params, ctx) {
   const all = index.byPerson.get(p.id) ?? [];
   const topic = params.get('topic') || 'all';
   const sort = params.get('sort') || 'views';
-  const shown = sortBy(topic === 'all' ? all : all.filter((v) => v.topics.includes(topic)), sort);
-  const counts = topicCounts(all);
-  const report = index.reports[p.id];
+  const list = sortBy(topic === 'all' ? all : all.filter((v) => v.topics.includes(topic)), sort);
   const busy = ctx.busy.has(p.id);
   const err = ctx.errors.get(p.id);
-  const liveAt = index.liveFetchedAt[p.id];
-  const isPotc = p.id === PERSON_OF_THE_CENTURY.id;
 
-  const liveBtn = ctx.hasKey
-    ? `<button type="button" class="btn${all.length ? '' : ' btn--primary'}" data-action="fetch-live" data-person="${p.id}"${busy ? ' disabled aria-busy="true"' : ''}>${icon.refresh}${busy ? 'Searching YouTube…' : all.length ? 'Refresh from YouTube' : 'Find videos on YouTube'}</button>`
-    : `<button type="button" class="btn" data-action="open-settings">${icon.refresh}Use live mode…</button>`;
-
-  let status = '';
-  if (report) {
-    const rej = Object.entries(report.rejected ?? {}).sort((a, b) => b[1] - a[1]);
-    status = `<details class="status">
-      <summary>${liveAt ? `Live results from ${esc(ago(liveAt))}` : `Searched ${esc(ago(report.searchedAt))}`} · ${plural(report.candidates, 'video')} checked · ${plural(report.accepted, 'passed', 'passed')} the bar</summary>
-      <p>Searches: ${report.queries.map((q) => `“${esc(q)}”`).join(', ')}.</p>
-      ${rej.length ? `<ul>${rej.map(([k, n]) => `<li><b>${n}</b> ${esc(REJECTION_LABELS[k] ?? k)}</li>`).join('')}</ul>` : ''}
-      <p>Videos about ${esc(p.name)} found while searching for other people are included too.</p>
-    </details>`;
+  const buttons = [];
+  if (ctx.hasKey) {
+    buttons.push(`<button type="button" class="pill${all.length ? '' : ' pill--dark'}" data-action="fetch-live" data-person="${p.id}"${busy ? ' disabled aria-busy="true"' : ''}>${icons.refresh}<span>${busy ? 'Loading…' : all.length ? 'Refresh' : 'Load videos'}</span></button>`);
   }
+  buttons.push(`<a class="pill" href="${ytSearch(queriesFor(p)[0])}" target="_blank" rel="noopener noreferrer">${icons.ext}<span>Search on YouTube</span></a>`);
 
-  const head = `<header class="person-head">
-    ${avatar(p, 'xl')}
-    <div class="ph-text">
-      <p class="eyebrow"><a href="${href.category(c.id)}"><span class="dot cat-${c.id}"></span>${esc(c.label)}</a>${isPotc ? ' · <b>Person of the Century</b>' : ''}</p>
+  const head = `<header class="channel-head">
+    ${avatar(p, 'xxl')}
+    <div class="channel-info">
       <h1>${esc(p.name)}</h1>
-      <p class="ph-years">${esc(p.years)}</p>
-      <p class="lede">${esc(p.blurb)}</p>
-      <div class="ph-actions">
-        ${liveBtn}
-        <a class="btn btn--ghost" href="${ytSearch(queriesFor(p)[0])}" target="_blank" rel="noopener noreferrer">${icon.ext}Search YouTube</a>
-      </div>
+      <p class="vline"><a href="${href.category(c.id)}">${esc(c.label)}</a> · ${esc(p.years)} · ${plural(all.length, 'video')}</p>
+      <p class="channel-desc">${p.id === PERSON_OF_THE_CENTURY.id ? 'TIME’s Person of the Century. ' : ''}${esc(p.blurb)}</p>
+      <div class="channel-actions">${buttons.join('')}</div>
       ${err ? `<p class="error" role="alert">${esc(err)}</p>` : ''}
-      ${status}
     </div>
   </header>`;
 
   if (!all.length) {
-    const why = report
-      ? `<p>${plural(report.candidates, 'video')} turned up, but none met HumTube’s bar of ${short(index.thresholds.minViews)}+ views, ${short(index.thresholds.minLikes)}+ likes and a ${short(index.thresholds.minSubscribers)}+ subscriber channel. Lesser-known figures often have excellent videos that are simply less viral — try <a href="${ytSearch(`${p.name} documentary`)}" target="_blank" rel="noopener noreferrer">searching YouTube directly</a>.</p>`
-      : `<p>No one has searched YouTube for ${esc(p.name)} yet. ${ctx.hasKey ? 'Press <i>Find videos on YouTube</i> above (about 100 of your 10,000 daily quota units).' : 'Run the catalog builder, or add an API key in settings to search from this page.'}</p>`;
-    return `${head}<section class="empty">${why}</section>`;
+    const t = index.thresholds;
+    const report = index.reports[p.id];
+    const msg = report
+      ? `None of the ${plural(report.candidates, 'video')} found had at least ${short(t.minViews)} views and ${short(t.minLikes)} likes from a channel with ${short(t.minSubscribers)}+ subscribers.`
+      : ctx.hasKey ? 'Not searched yet. Use “Load videos” above.' : 'Not searched yet.';
+    return `${head}<div class="tabs"><span class="tab is-active">Videos</span></div><p class="message message--inline">${msg}</p>`;
   }
 
-  const topicItems = [
-    { id: 'all', label: 'All', count: all.length, href: href.person(p.id, { sort: sort === 'views' ? null : sort }) },
-    ...ALL_TOPICS.filter((t) => counts.get(t.id)).map((t) => ({ id: t.id, label: t.label, count: counts.get(t.id), href: href.person(p.id, { topic: t.id, sort: sort === 'views' ? null : sort }) })),
-  ];
-
-  return `${head}
-    <div class="toolbar">${chips(topicItems, topic)}${sortSelect(sort)}</div>
-    ${shown.length ? videoGrid(shown) : '<p class="empty">No videos in this topic.</p>'}`;
-}
-
-// ── Topic (and "all videos") ────────────────────────────────────────────
-export function topic(index, topicId, params) {
-  const t = topicId === 'all' ? { id: 'all', label: 'All videos', icon: '📚' } : TOPIC_BY_ID.get(topicId);
-  if (!t) return notFound();
-  const cat = params.get('cat') || 'all';
-  const sort = params.get('sort') || 'views';
-  const limit = Math.max(60, Number(params.get('n')) || 60);
-  const base = t.id === 'all' ? index.list : index.byTopic.get(t.id) ?? [];
-  const inCat = (v, catId) => v.personIds.some((id) => PEOPLE_BY_ID.get(id)?.category === catId);
-  const filtered = cat === 'all' ? base : base.filter((v) => inCat(v, cat));
-  const shown = sortBy(filtered, sort);
   const keep = { sort: sort === 'views' ? null : sort };
-  const catItems = [
-    { id: 'all', label: 'All categories', count: base.length, href: href.topic(t.id, keep) },
-    ...CATEGORIES.map((c) => ({ id: c.id, label: c.short, count: base.filter((v) => inCat(v, c.id)).length, href: href.topic(t.id, { ...keep, cat: c.id }) })),
+  const items = [
+    { id: 'all', label: 'All', href: href.person(p.id, keep) },
+    ...topicsIn(all).map((t) => ({ id: t.id, label: t.label, href: href.person(p.id, { topic: t.id, ...keep }) })),
   ];
-  return `${pageHead(`<span class="h-icon" aria-hidden="true">${t.icon}</span>${esc(t.label)}`, plural(filtered.length, 'video'))}
-    <div class="toolbar">${chips(catItems, cat)}${sortSelect(sort)}</div>
-    ${shown.length ? videoGrid(shown.slice(0, limit), { showPerson: true }) : '<p class="empty">No videos here yet.</p>'}
-    ${shown.length > limit ? `<p class="more"><a class="btn" href="${href.topic(t.id, { ...keep, cat: cat === 'all' ? null : cat, n: limit + 60 })}">Show more</a></p>` : ''}`;
+  return `${head}
+    <div class="tabs"><span class="tab is-active">Videos</span></div>
+    ${chipBar(items, topic, { extra: sortSelect(sort) })}
+    ${list.length ? pagedGrid(list) : '<p class="message message--inline">No videos.</p>'}`;
 }
 
 // ── Watch ───────────────────────────────────────────────────────────────
 export function watch(index, videoId, ctx) {
   const v = index.videos.get(videoId);
-  if (!v) return notFound('This video isn’t in HumTube’s catalog.');
+  if (!v) return notFound('This video isn’t on HumTube.');
   const people = v.personIds.map((id) => PEOPLE_BY_ID.get(id)).filter(Boolean);
-  const lead = PEOPLE_BY_ID.get(v.foundFor?.[0]) ?? people[0];
+  const lead = leadPerson(v);
   const isSaved = ctx.saved.has(v.id);
-  // Sidebar: the lead person's other videos first, then videos of anyone else in this one.
+
+  // Up next: the lead person's other videos, then anyone else in this one.
   const seen = new Set([v.id]);
-  const take = (list, max) => list.filter((r) => !seen.has(r.id) && seen.add(r.id)).slice(0, max);
-  const more = lead ? take(index.byPerson.get(lead.id) ?? [], 10) : [];
-  const others = people.filter((p) => p !== lead);
-  const related = take(others.flatMap((p) => index.byPerson.get(p.id) ?? []), Math.max(4, 12 - more.length));
+  const take = (list) => list.filter((r) => !seen.has(r.id) && seen.add(r.id));
+  const upNext = [
+    ...take(lead ? index.byPerson.get(lead.id) ?? [] : []).slice(0, 12),
+    ...take(people.filter((p) => p !== lead).flatMap((p) => index.byPerson.get(p.id) ?? [])).slice(0, 8),
+  ];
   const ytUrl = `https://www.youtube.com/watch?v=${v.id}`;
 
   const player = v.embeddable
     ? `<div class="player"><iframe src="https://www.youtube-nocookie.com/embed/${v.id}?rel=0" title="${esc(v.title)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`
-    : `<a class="player player--poster" href="${ytUrl}" target="_blank" rel="noopener noreferrer"><img src="${thumbHq(v.id)}" alt=""><span class="poster-note">${icon.play}The uploader doesn’t allow embedding — watch on YouTube</span></a>`;
+    : `<a class="player player--poster" href="${ytUrl}" target="_blank" rel="noopener noreferrer"><img src="${thumbHq(v.id)}" alt=""><span class="poster-note">${icons.play}Watch on YouTube</span></a>`;
 
   return `<div class="watch">
     <div class="watch-main">
       ${player}
       <h1 class="watch-title">${esc(v.title)}</h1>
-      <div class="watch-meta">
-        <div class="channel"><span class="channel-avatar" aria-hidden="true">${esc((v.channelTitle || '?').trim()[0] ?? '?')}</span><span><b>${esc(v.channelTitle)}</b><small>${full(v.channelSubscribers)} subscribers</small></span></div>
+      <div class="watch-bar">
+        <div class="owner">
+          <span class="owner-avatar" aria-hidden="true">${esc((v.channelTitle || '?').trim()[0] ?? '?')}</span>
+          <span class="owner-text"><b>${esc(v.channelTitle)}</b><span>${v.channelSubscribers ? `${short(v.channelSubscribers)} subscribers` : ''}</span></span>
+        </div>
         <div class="watch-actions">
-          <button type="button" class="btn${isSaved ? ' is-on' : ''}" data-action="save" data-video="${v.id}" aria-pressed="${isSaved}">${isSaved ? icon.bookmarkOn : icon.bookmark}<span>${isSaved ? 'Saved' : 'Watch later'}</span></button>
-          <a class="btn" href="${ytUrl}" target="_blank" rel="noopener noreferrer">${icon.ext}Open on YouTube</a>
+          <span class="pill pill--static" title="${full(v.likes)} likes">${svg('<path d="M7 10v10H4V10zM7 10l4-7c1.4 0 2.3 1.2 2 2.5L12.5 9H18a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 16.8 20H7"/>')}<span>${short(v.likes)}</span></span>
+          <button type="button" class="pill" data-action="save" data-video="${v.id}" aria-pressed="${isSaved}">${isSaved ? icons.saved : icons.save}<span>${isSaved ? 'Saved' : 'Save'}</span></button>
+          <a class="pill" href="${ytUrl}" target="_blank" rel="noopener noreferrer">${icons.ext}<span>YouTube</span></a>
         </div>
       </div>
-      <dl class="stat-row">
-        <div><dt>Views</dt><dd>${full(v.views)}</dd></div>
-        <div><dt>Likes</dt><dd>${full(v.likes)}</dd></div>
-        <div><dt>Length</dt><dd>${duration(v.durationSec) || '—'}</dd></div>
-        <div><dt>Published</dt><dd>${esc(date(v.publishedAt)) || '—'}</dd></div>
-      </dl>
-      <div class="watch-people">
-        ${people.map((p) => `<a class="person-chip" href="${href.person(p.id)}">${avatar(p, 'sm')}<span>${esc(p.name)}</span></a>`).join('')}
+      <div class="description">
+        <p class="description-head"><span>${full(v.views)} views</span><span>${esc(date(v.publishedAt))}</span>${v.topics.filter((t) => t !== 'other').map((t) => `<a href="${href.home({ topic: t })}">#${esc(TOPIC_BY_ID.get(t)?.label.replace(/\s+/g, '') ?? t)}</a>`).join('')}</p>
+        ${v.description ? `<p class="description-body">${esc(v.description)}${v.description.length >= 280 ? '…' : ''}</p>` : ''}
+        <div class="description-people">
+          ${people.map((p) => `<a class="person-link" href="${href.person(p.id)}">${avatar(p)}<span class="person-link-text"><b>${esc(p.name)}</b><span>${esc(CATEGORY_BY_ID.get(p.category).label)}</span></span></a>`).join('')}
+        </div>
       </div>
-      <p class="watch-topics">${v.topics.map((t) => `<a class="tag tag--link" href="${href.topic(t)}">${esc(TOPIC_BY_ID.get(t)?.label ?? t)}</a>`).join('')}</p>
-      ${v.description ? `<p class="watch-desc">${esc(v.description)}${v.description.length >= 280 ? '…' : ''}</p>` : ''}
     </div>
-    <aside class="watch-side" aria-label="Related videos">
-      ${more.length ? `<h2>More about ${esc(lead.name)}</h2>${more.map((r) => videoCard(r, { compact: true })).join('')}` : ''}
-      ${related.length ? `<h2>Also featuring ${esc(others.map((p) => p.name).slice(0, 2).join(' & '))}</h2>${related.map((r) => videoCard(r, { compact: true })).join('')}` : ''}
-      ${!more.length && !related.length ? `<h2>More videos</h2><p class="empty">Nothing else yet${lead ? ` for ${esc(lead.name)}` : ''}.</p>` : ''}
+    <aside class="watch-side" aria-label="Up next">
+      ${upNext.length ? upNext.map(videoRow).join('') : '<p class="vline">No other videos yet.</p>'}
     </aside>
   </div>`;
 }
@@ -354,54 +315,51 @@ export function watch(index, videoId, ctx) {
 // ── Search ──────────────────────────────────────────────────────────────
 export function search(index, q) {
   const needle = fold(q).trim();
-  if (!needle) return pageHead('Search', 'Type a name, a war, a film or a topic.');
+  if (!needle) return `<p class="message message--inline">Type a name, a war or a film.</p>`;
   const words = needle.split(' ');
   const hit = (text) => {
     const f = fold(text);
     return words.every((w) => f.includes(` ${w}`));
   };
-  const people = PEOPLE.filter((p) => hit([p.name, p.blurb, ...p.match, CATEGORY_BY_ID.get(p.category).label].join(' ')));
-  const topics = ALL_TOPICS.filter((t) => hit(t.label));
+  const people = PEOPLE.filter((p) => hit([p.name, ...p.match, CATEGORY_BY_ID.get(p.category).label].join(' ')));
   const vids = index.list.filter((v) => hit(`${v.title} ${v.channelTitle} ${v.personIds.map((id) => PEOPLE_BY_ID.get(id)?.name).join(' ')}`));
-  const nothing = !people.length && !topics.length && !vids.length;
-  return `${pageHead(`Results for “${esc(q)}”`, nothing ? 'Nothing matched. Try a last name, like “Churchill”, or a topic, like “war”.' : '')}
-    ${topics.length ? `<div class="chips">${topics.map((t) => `<a class="chip" href="${href.topic(t.id)}">${t.icon} ${esc(t.label)}</a>`).join('')}</div>` : ''}
-    ${people.length ? `<section class="section"><div class="section-head"><h2>People</h2></div><div class="person-grid">${people.map((p) => personCard(p, index.byPerson.get(p.id)?.length ?? 0)).join('')}</div></section>` : ''}
-    ${vids.length ? `<section class="section"><div class="section-head"><h2>${plural(vids.length, 'video')}</h2></div>${videoGrid(vids.slice(0, 60), { showPerson: true })}</section>` : ''}`;
+  if (!people.length && !vids.length) return `<p class="message message--inline">No results for “${esc(q)}”.</p>`;
+  return `<div class="results">
+    ${people.map((p) => personResult(index, p)).join('')}
+    ${vids.length ? pagedGrid(vids, videoResult, 'results-list') : ''}
+  </div>`;
 }
 
-// ── Saved ───────────────────────────────────────────────────────────────
+// ── Watch later ─────────────────────────────────────────────────────────
 export function savedView(index, ctx) {
-  const ids = ctx.saved.list();
-  const vids = ids.map((id) => index.videos.get(id)).filter(Boolean);
-  return `${pageHead('Watch later', vids.length ? plural(vids.length, 'saved video') : 'Videos you save appear here. They’re stored in this browser only.')}
-    ${vids.length ? videoGrid(vids, { showPerson: true }) : ''}`;
+  const vids = ctx.saved.list().map((id) => index.videos.get(id)).filter(Boolean);
+  return `<header class="page-title"><h1>Watch later</h1><p class="vline">${plural(vids.length, 'video')}</p></header>
+    ${vids.length ? `<div class="results">${vids.map(videoResult).join('')}</div>` : '<p class="message message--inline">Videos you save will show up here.</p>'}`;
 }
 
 // ── About ───────────────────────────────────────────────────────────────
 export function about(index) {
   const t = index.thresholds;
-  return `${pageHead('About HumTube', 'A history classroom made of YouTube’s best-loved videos about the 20th century’s most important people.')}
-  <div class="prose">
-    <h2>The 100 people</h2>
-    <p>In 1998 and 1999 TIME named the 100 most important people of the century in five groups of 20, then chose <a href="${href.person(PERSON_OF_THE_CENTURY.id)}">Albert Einstein</a> as Person of the Century. HumTube follows that list exactly (<a href="https://time.com/archive/6735625/time-100-persons-of-the-century/" target="_blank" rel="noopener noreferrer">TIME’s archive</a>).</p>
-    ${CATEGORIES.map((c) => `<h3><span class="dot cat-${c.id}"></span>${esc(c.label)} <small>· ${esc(c.issue)}</small></h3>
-      <p class="name-list">${PEOPLE.filter((p) => p.category === c.id).map((p) => `<a href="${href.person(p.id)}">${esc(p.name)}</a>`).join(' · ')}</p>`).join('')}
-    <h2>Which videos make it in</h2>
+  return `<article class="prose">
+    <h1>About HumTube</h1>
+    <p>HumTube collects YouTube videos about the people on TIME’s list of the 100 most important people of the 20th century, published in 1998 and 1999. TIME named Albert Einstein Person of the Century, with Franklin D. Roosevelt and Mohandas Gandhi as runners-up. <a href="https://time.com/archive/6735625/time-100-persons-of-the-century/" target="_blank" rel="noopener noreferrer">TIME’s list</a></p>
+    <h2>Which videos are included</h2>
     <ul>
-      <li>At least <b>${full(t.minViews)} views</b>.</li>
-      <li>At least <b>${full(t.minLikes)} likes</b>. Videos with hidden like counts can’t be checked, so they’re left out.</li>
-      <li>From a channel with at least <b>${full(t.minSubscribers)} subscribers</b>. Hidden subscriber counts are left out too.</li>
-      <li>Longer than ${t.minDurationSec} seconds, so Shorts are skipped.</li>
-      <li>Clearly about the person: their name (or a defining term, like “Tank Man”) must be in the title, tags or opening of the description.</li>
-      <li>No memes, parodies, fan edits, rap battles or game footage.</li>
+      <li>${full(t.minViews)} or more views</li>
+      <li>${full(t.minLikes)} or more likes (videos with hidden likes are left out)</li>
+      <li>From a channel with ${full(t.minSubscribers)} or more subscribers (hidden counts are left out)</li>
+      <li>Longer than ${t.minDurationSec} seconds</li>
+      <li>The person’s name is in the title, tags or the start of the description</li>
+      <li>No memes, parodies, fan edits or game videos</li>
     </ul>
-    <p>Each video is labeled with topics (war, documentary, movies & drama, speeches, interviews, biography, archival footage, explainers, music, sports) based on its title, channel and YouTube category.</p>
-    <h2>Where the data comes from</h2>
-    <p>Video details and statistics come from the YouTube Data API. Videos play through YouTube’s privacy-enhanced embed. HumTube is not affiliated with TIME or YouTube. ${index.generatedAt ? `This catalog was built on ${esc(date(index.generatedAt))}.` : 'The catalog has not been built yet.'}</p>
-  </div>`;
+    <h2>The 100 people</h2>
+    ${CATEGORIES.map((c) => `<h3>${esc(c.label)}</h3>
+      <p>${PEOPLE.filter((p) => p.category === c.id).map((p) => `<a href="${href.person(p.id)}">${esc(p.name)}</a>`).join(', ')}</p>`).join('')}
+    <h2>Data</h2>
+    <p>Video information comes from the YouTube Data API${index.generatedAt ? ` and was last updated ${esc(date(index.generatedAt))}` : ''}. Videos play in YouTube’s privacy-enhanced player. HumTube is not affiliated with TIME or YouTube.</p>
+  </article>`;
 }
 
-export function notFound(message = 'That page doesn’t exist.') {
-  return `${pageHead('Not found', esc(message))}<p><a class="btn" href="${href.home()}">Back to HumTube</a></p>`;
+export function notFound(message = 'This page isn’t available.') {
+  return `<section class="message"><h1>${esc(message)}</h1><p><a class="pill" href="${href.home()}">Go to home</a></p></section>`;
 }
