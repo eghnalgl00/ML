@@ -1,0 +1,5 @@
+# YouTube API response cache (resumable builds) — local only
+.cache/
+*.tmp
+node_modules/
+data/_*.json

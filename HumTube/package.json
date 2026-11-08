@@ -1,0 +1,13 @@
+{
+  "name": "humtube",
+  "version": "1.0.0",
+  "description": "Learn the 20th century through YouTube videos about TIME's 100 most important people of the century.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build:catalog": "node scripts/build-catalog.mjs",
+    "test": "node --test \"test/*.test.js\""
+  }
+}

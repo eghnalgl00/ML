@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "generatedAt": null,
+  "thresholds": {
+    "minViews": 500000,
+    "minLikes": 50000,
+    "minSubscribers": 100000,
+    "minDurationSec": 60
+  },
+  "people": {},
+  "videos": []
+}
