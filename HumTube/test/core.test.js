@@ -86,6 +86,10 @@ test('language filter', () => {
   assert.equal(videoRejection({ ...ok, title: 'ऐसे हुई थी Mahatma Gandhi की हत्या... (3D Animation)' }, m), 'language');
   assert.equal(videoRejection({ ...ok, lang: 'hi' }, m, { ...DEFAULT_THRESHOLDS, language: '' }), null, 'language check can be disabled');
   assert.equal(videoRejection({ ...ok, lang: null }, m), null, 'no declared language + Latin title passes');
+  assert.equal(videoRejection({ ...ok, lang: 'en', title: 'Albert Einstein का दिमाग क्यों था खास ? How Albert Einstein Brain Works' }, makeMatcher(person('albert-einstein'))), 'language', 'mislabeled language is caught by the title');
+  assert.equal(videoRejection({ ...ok, title: 'Le dispararon en el pecho y habló hora y media con la bala adentro (Theodore Roosevelt)' }, makeMatcher(person('theodore-roosevelt'))), 'language');
+  assert.equal(videoRejection({ ...ok, title: 'Como OS BEATLES Mudaram a história da música' }, makeMatcher(person('the-beatles'))), 'language');
+  assert.equal(videoRejection({ ...ok, title: 'How Gandhi Changed the World' }), null);
 });
 
 test('global exclusions', () => {
@@ -98,6 +102,26 @@ test('global exclusions', () => {
   assert.ok(isGloballyExcluded('Let It Be - The Beatles (Boyce Avenue acoustic cover)'));
   assert.ok(isGloballyExcluded('She Had A Higher IQ Than Albert Einstein!', 'MrBallen Shorts'));
   assert.ok(!makeMatcher(person('winston-churchill')).own(video({ title: 'Jack Harlow - Churchill Downs feat. Drake' })));
+  assert.ok(isGloballyExcluded('Ben l Oncle Soul « I’ve got you under my skin » (Frank Sinatra cover)'));
+  assert.ok(!isGloballyExcluded('The JFK Cover-Up, Explained'));
+  assert.ok(isGloballyExcluded('Final Words For Lucille Ball #sad #lucilleball #love'));
+  assert.ok(isGloballyExcluded('Henry Ford Wanted To Raise Wages #funfact'));
+  assert.ok(!isGloballyExcluded('The #1 Mistake of World War II'));
+  assert.ok(isGloballyExcluded('Pedagogy Theories- Piaget, Vygotsky & Kohlberg for CTET, DSSSB'));
+  assert.ok(isGloballyExcluded('Nelson Mandela long walk to freedom class 10 in hindi'));
+});
+
+test('music videos count only for musicians; brand names match on title only', () => {
+  const reagan = makeMatcher(person('ronald-reagan'));
+  assert.ok(!reagan.own(video({ title: 'Killer Mike - "Reagan" (Official Music Video)', categoryId: '10' })));
+  assert.ok(reagan.own(video({ title: 'Reagan Assassination Attempt', categoryId: '27' })));
+  assert.ok(makeMatcher(person('bob-dylan')).own(video({ title: 'Bob Dylan - Hurricane (Official Audio)', categoryId: '10' })));
+  assert.ok(!makeMatcher(person('walt-disney')).own(video({ title: 'You’re Welcome (from Moana)', description: 'Walt Disney Animation Studios presents' })));
+  assert.ok(makeMatcher(person('walt-disney')).own(video({ title: 'The Untold Story of Walt Disney' })));
+  assert.ok(!makeMatcher(person('jim-henson')).own(video({ title: 'Observation | Sid The Science Kid | The Jim Henson Company' })));
+  assert.ok(!makeMatcher(person('princess-diana')).own(video({ title: 'Diana is going to the Princess Ball', channelTitle: '✿ Kids Diana Show' })));
+  assert.ok(!makeMatcher(person('wright-brothers')).own(video({ title: '£1 deal at Wright Brothers in London #oysterlover' })));
+  assert.ok(!makeMatcher(person('ronald-reagan')).mentions({ title: 'Killer Mike - Reagan', categoryId: '10' }));
 });
 
 test('quality bar: views, likes, subscribers, duration, availability', () => {
@@ -147,6 +171,10 @@ test('ISO 8601 durations', () => {
 test('home feed mixes people instead of stacking one person’s videos', async () => {
   const { mixByPerson } = await import('../src/app/views.js');
   const v = (id, pid, views) => ({ id, views, personIds: [pid], foundFor: [pid] });
-  const list = [v('b1', 'the-beatles', 900), v('b2', 'the-beatles', 800), v('b3', 'the-beatles', 700), v('c1', 'winston-churchill', 50), v('g1', 'mohandas-gandhi', 20), v('c2', 'winston-churchill', 10)];
+  const v2 = (id, pid, views) => ({ ...v(id, pid, views), topics: ['documentary'] });
+  const list = [v2('b1', 'the-beatles', 900), v2('b2', 'the-beatles', 800), v2('b3', 'the-beatles', 700), v2('c1', 'winston-churchill', 50), v2('g1', 'mohandas-gandhi', 20), v2('c2', 'winston-churchill', 10)];
   assert.deepEqual(mixByPerson(list).map((x) => x.id), ['b1', 'c1', 'g1', 'b2', 'c2', 'b3']);
+  const m = (id, pid, views, topics) => ({ ...v(id, pid, views), topics });
+  const withMusic = [m('song', 'the-beatles', 900, ['other']), m('doc', 'the-beatles', 5, ['documentary']), m('war', 'adolf-hitler', 50, ['war'])];
+  assert.deepEqual(mixByPerson(withMusic).map((x) => x.id), ['war', 'doc', 'song'], 'history topics first, songs last');
 });

@@ -100,7 +100,7 @@ export function buildCatalog({
     const ch = channels[v.channelId];
     const personIds = [...found];
     for (const p of people) {
-      if (!found.has(p.id) && matchers.get(p.id).mentions(v.title)) personIds.push(p.id);
+      if (!found.has(p.id) && matchers.get(p.id).mentions(v)) personIds.push(p.id);
     }
     out.push({
       id,

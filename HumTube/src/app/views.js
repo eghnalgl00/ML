@@ -178,9 +178,12 @@ export function sidebar(index, route) {
     <p class="guide-foot">Based on TIME’s 100 Persons of the Century. Not affiliated with TIME or YouTube.</p>`;
 }
 
+const HISTORY_TOPICS = new Set(['war', 'documentary', 'film', 'speech', 'interview', 'biography', 'archival', 'explainer', 'sports']);
+
 /**
  * Feed order: everyone's most-watched video first, then everyone's second, and
- * so on, so a few very popular people (or music videos) can't fill the page.
+ * so on, so a few very popular people can't fill the page. Videos with a history
+ * topic come before songs and everything else: this is a history site first.
  */
 export function mixByPerson(list) {
   const groups = new Map();
@@ -189,8 +192,10 @@ export function mixByPerson(list) {
     if (!groups.has(id)) groups.set(id, []);
     groups.get(id).push(v);
   }
-  const queues = [...groups.values()].map((q) => [...q].sort((a, b) => b.views - a.views));
-  queues.sort((a, b) => b[0].views - a[0].views);
+  // 0 for videos with a history topic (war, documentary, speech...), 1 for songs and the rest.
+  const rank = (v) => ((v.topics ?? []).some((t) => HISTORY_TOPICS.has(t)) ? 0 : 1);
+  const queues = [...groups.values()].map((q) => [...q].sort((a, b) => rank(a) - rank(b) || b.views - a.views));
+  queues.sort((a, b) => rank(a[0]) - rank(b[0]) || b[0].views - a[0].views);
   const out = [];
   const rounds = Math.max(0, ...queues.map((q) => q.length));
   for (let i = 0; i < rounds; i += 1) for (const q of queues) if (q[i]) out.push(q[i]);
